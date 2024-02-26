@@ -245,7 +245,7 @@ void Aftr::GLViewNewModule::loadMap()
 
 	engine = irrklang::createIrrKlangDevice();
 	engine->setSoundVolume(1.0);
-	assets.importAudio(engine, (ManagerEnvironmentConfiguration::getLMM() + "/sounds/Wizards_Tower.wav").c_str());
+	//assets.importAudio(engine, (ManagerEnvironmentConfiguration::getLMM() + "/sounds/Wizards_Tower.wav").c_str());
 
 	ManagerOpenGLState::GL_CLIPPING_PLANE = 1000.0;
 	ManagerOpenGLState::GL_NEAR_PLANE = 0.1f;
@@ -476,7 +476,6 @@ void Aftr::GLViewNewModule::loadMap()
 	gui->subscribe_drawImGuiWidget(
 		[this, gui]() //this is a lambda, the capture clause is in [], the input argument list is in (), and the body is in {}
 		{
-			ImGui::Begin("Olivia's GUI");
 			assets.AssetMenuGUI(gui, assets, engine);
 			/*
 			{
@@ -592,7 +591,6 @@ void Aftr::GLViewNewModule::loadMap()
 				//ImGui::Text("Selected Path is : '%s'", selected_path.string().c_str());
 			}
 			*/
-			ImGui::End();
 			//ImGui::ShowDemoWindow(); //Displays the default ImGui demo from C:/repos/aburn/engine/src/imgui_implot/implot_demo.cpp
 			//WOImGui::draw_AftrImGui_Demo( gui ); //Displays a small Aftr Demo from C:/repos/aburn/engine/src/aftr/WOImGui.cpp
 			//ImPlot::ShowDemoWindow(); //Displays the ImPlot demo using ImGui from C:/repos/aburn/engine/src/imgui_implot/implot_demo.cpp

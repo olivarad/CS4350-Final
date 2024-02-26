@@ -24,7 +24,7 @@ public:
 	// Asset Import/Build Functions
 	
 	// Import model to be used as a WO
-	void importModel(std::string path);
+	void importModel(const std::string& path);
 	// Import Audio to be used for 2D and 3D audio
 	void importAudio(irrklang::ISoundEngine* engine, const char* soundFileName);
 	// Creates a full asset with one audio source, more can be added later

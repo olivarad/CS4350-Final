@@ -8,8 +8,10 @@
 #include <list>
 #include <string>
 #include "AssetMenu.h"
+using namespace Aftr;
 
 void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine) {
+	ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
 	static std::filesystem::path selected_path = "";
 	static AftrImGui_Markdown_Renderer md_render = Aftr::make_default_MarkdownRenderer();
 	ImGui::Begin("AssetMenu");
@@ -32,21 +34,39 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					assets.importAudio(engine, pathAsString.c_str());
 			}
 		}
+		if (ImGui::CollapsingHeader("Assets"))
+		{
+			for (std::list<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it) 
+				ImGui::Text(("    " + (*it)->getLabel()).c_str());
+		}
+		if (ImGui::CollapsingHeader("Audio"))
+		{
+			for (std::list<Audio>::iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
+				ImGui::Text(("	" + (*it).first).c_str());
+		}
+
 	}
 
 	ImGui::End();
 
 }
 
-void AssetMenu::importModel(std::string path)
+void AssetMenu::importModel(const std::string& path)
 {
-	WO* wo = WO::New((path), Vector(1, 1, 1));
-	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+	std::string label = path;
 	int lastSlashPos = path.rfind('\\'); // Find the position of the last '/'
 	int lastDotPos = path.rfind('.'); // Find the position of the last '.'
 	if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
-		path = path.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
-	wo->setLabel(path);
+		label = path.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
+	// Check if asset already exists
+	for (std::list<WO*>::iterator it = WorldObjects.begin(); it != WorldObjects.end(); ++it)
+	{
+		if ((*it)->getLabel() == label)
+			return;
+	}
+	WO* wo = WO::New((path), Vector(1, 1, 1));
+	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+	wo->setLabel(label);
 	WorldObjects.push_back(wo);
 }
 
@@ -57,5 +77,11 @@ void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFil
 	int lastDotPos = name.rfind('.'); // Find the position of the last '.'
 	if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
 		name = name.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
+	// Check if audio source already exists
+	for (std::list<Audio>::iterator it = AudioSources.begin(); it != AudioSources.end(); ++it)
+	{
+		if ((*it).first == name)
+			return;
+	}
 	AudioSources.push_back(std::make_pair(name, engine->addSoundSourceFromFile(soundFileName)));
 }
