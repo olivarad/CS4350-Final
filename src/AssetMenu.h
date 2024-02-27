@@ -12,6 +12,7 @@
 using namespace Aftr;
 
 typedef std::pair<std::string, irrklang::ISoundSource*> Audio; // Name of audio file, Source for play with 2D and 3D audio
+typedef std::pair < std::string, std::list<Audio>> PlayList; // Name of playlist, Audio element
 typedef std::pair<WO*, std::list<Audio*>> FullAsset; // World object with all of its potential sounds
 
 class AssetMenu
@@ -33,7 +34,10 @@ public:
 	void addAudio(FullAsset& fullAsset, Audio* audio) { fullAsset.second.push_back(audio); }
 
 protected:
+	bool ShowingPlaylistCreator = false;
+	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
 	std::list<WO*> WorldObjects;
 	std::list<Audio> AudioSources;
+	std::list<PlayList> PlayLists;
 	std::list<FullAsset> FullAssets;
 };

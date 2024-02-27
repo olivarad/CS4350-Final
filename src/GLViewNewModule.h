@@ -3,6 +3,7 @@
 #include "GLView.h"
 #include "irrKlang.h"
 #include "AssetMenu.h"
+#include "AudioPlayer.h"
 
 namespace Aftr
 {
@@ -59,6 +60,7 @@ namespace Aftr
 		float masterVolume = 0.5f;
 
 		AssetMenu assets;
+		AudioPlayer audioPlayer;
 	};
 
 	/** \} */

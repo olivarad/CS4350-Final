@@ -14,6 +14,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 	ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
 	static std::filesystem::path selected_path = "";
 	static AftrImGui_Markdown_Renderer md_render = Aftr::make_default_MarkdownRenderer();
+	static char playlistName[256] = {};
 	ImGui::Begin("AssetMenu");
 
 	{
@@ -36,13 +37,53 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::CollapsingHeader("Assets"))
 		{
-			for (std::list<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it) 
+			for (std::list<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
 				ImGui::Text(("    " + (*it)->getLabel()).c_str());
 		}
 		if (ImGui::CollapsingHeader("Audio"))
 		{
 			for (std::list<Audio>::iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
-				ImGui::Text(("	" + (*it).first).c_str());
+				if (ImGui::Button(((*it).first).c_str()))
+				{
+					//if (assets.CurrentBackgroudSound != nullptr)
+						//engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
+					//assets.CurrentBackgroudSound = (*it).second;
+					//std::cout << assets.CurrentBackgroudSound << std::endl;
+					//engine->play2D((*it).second);
+
+				}
+		}
+		if (ImGui::Button("Make Playlist"))
+		{
+			assets.ShowingPlaylistCreator = true;
+			//std::cout << playlistName << std::endl;
+		}
+		if (assets.ShowingPlaylistCreator)
+		{
+			ImGui::OpenPopup("Playlist Creator");
+			if (ImGui::BeginPopup("Playlist Creator"))
+			{
+				ImVec2 popupSize = ImGui::GetWindowSize();
+				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
+				ImGui::SetWindowPos(centerPos);
+				std::memset(playlistName, '\0', sizeof(playlistName));
+				ImGui::Text("Playlist Creator");
+				ImGui::InputText("Playlist Name", playlistName, sizeof(playlistName));
+				if (ImGui::Button("Cancel"))
+				{
+					assets.ShowingPlaylistCreator = false;
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::EndPopup();
+			}
+		}
+		if (ImGui::CollapsingHeader("Playlists"))
+		{
+			for (std::list<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end(); ++it)
+				if (ImGui::CollapsingHeader(((*it).first).c_str())) { // List playlist titles
+					for (std::list<Audio>::iterator audioIt = (*it).second.begin(); audioIt != (*it).second.end(); ++audioIt)
+						ImGui::Text(((*audioIt).first).c_str()); // Output the label of each audio element in the playlist
+				}
 		}
 
 	}

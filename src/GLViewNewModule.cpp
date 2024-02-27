@@ -477,6 +477,7 @@ void Aftr::GLViewNewModule::loadMap()
 		[this, gui]() //this is a lambda, the capture clause is in [], the input argument list is in (), and the body is in {}
 		{
 			assets.AssetMenuGUI(gui, assets, engine);
+			//audioPlayer.AudioPlayerGUI(gui, assets.AudioSources, engine);
 			/*
 			{
 				ImGui::Text("Object Selector");
