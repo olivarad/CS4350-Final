@@ -58,54 +58,19 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		if (ImGui::Button("Make Playlist"))
 		{
 			std::memset(playlistName, '\0', sizeof(playlistName));
+			assets.selectedAudio.clear();
 			assets.ShowingPlaylistCreatorMenu = true;
 		}
 		if (assets.ShowingPlaylistCreatorMenu)
 		{
-			ImGui::OpenPopup("Playlist Creator Menu");
-			if (ImGui::BeginPopup("Playlist Creator Menu"))
+			ImGui::OpenPopup("Playlist Creator");
+			if (ImGui::BeginPopup("Playlist Creator"))
 			{
 				ImVec2 popupSize = ImGui::GetWindowSize();
 				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
 				ImGui::SetWindowPos(centerPos);
-				ImGui::Text("Playlist Creator Menu");
+				ImGui::Text("Playlist Creator");
 				ImGui::InputText("Playlist Name", playlistName, sizeof(playlistName));
-				ImGui::Spacing();
-				ImGui::Separator();
-				ImGui::Spacing();
-				ImGui::SameLine();
-				if (ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
-				{
-					if (playlistName[0] != '\0') // Name is not empty
-					{
-						assets.CanUseEnterKey = false;
-						assets.selectedAudio.clear();
-						assets.ShowingPlaylistCreator = true;
-						std::cout << "Playlist Name: " << playlistName << std::endl;
-						assets.ShowingPlaylistCreatorMenu = false;
-						ImGui::CloseCurrentPopup();
-					}
-				}
-				ImGui::SameLine();
-				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
-				{
-					assets.ShowingPlaylistCreatorMenu = false;
-					ImGui::CloseCurrentPopup();
-				}
-				ImGui::EndPopup();
-			}
-		}
-		if (assets.ShowingPlaylistCreator)
-		{
-			if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_Enter)))
-				assets.CanUseEnterKey = true;
-			ImGui::OpenPopup("Playlist Audio Selector");
-			if (ImGui::BeginPopup("Playlist Audio Selector"))
-			{
-				ImVec2 popupSize = ImGui::GetWindowSize();
-				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
-				ImGui::SetWindowPos(centerPos);
-				ImGui::Text(("Playlist (" + std::string(playlistName) + ") Audio Selector").c_str());
 				ImGui::Spacing();
 				ImGui::Separator();
 				ImGui::Spacing();
@@ -116,7 +81,13 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					ImGui::SameLine();
 					if (ImGui::Button((it->first).c_str()))
-						assets.selectedAudio.insert(*it);
+					{
+						auto selectedAudioIterator = assets.selectedAudio.find(*it);
+						if (selectedAudioIterator != assets.selectedAudio.end()) // Audio already exists in hypothetical playlist
+							assets.selectedAudio.erase(*it);
+						else // Audio is not in hypothetical playlist
+							assets.selectedAudio.insert(*it);
+					}
 				}
 				ImGui::NewLine();
 				ImGui::Text("Selected Audio Sources");
@@ -126,23 +97,29 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					ImGui::SameLine();
 					ImGui::Text(std::string(it->first + "  ").c_str());
 				}
-				ImGui::NewLine();
-				ImGui::SameLine();
-				if (ImGui::Button("Confirm") || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && assets.CanUseEnterKey))
+				if (ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
 				{
-					if (!assets.selectedAudio.empty())
+					if (playlistName[0] != '\0' && !assets.selectedAudio.empty())
 					{
-						PlayList playlist {playlistName, assets.selectedAudio};
-						assets.PlayLists.insert(playlist);
-						assets.ShowingPlaylistCreator = false;
-						ImGui::CloseCurrentPopup();
+						auto it = assets.PlayLists.find({ playlistName ,assets.selectedAudio });
+						if (it == assets.PlayLists.end()) // Element does not exist
+						{
+							assets.PlayLists.insert({ playlistName ,assets.selectedAudio });
+							assets.selectedAudio.clear();
+							assets.ShowingPlaylistCreatorMenu = false;
+							ImGui::CloseCurrentPopup();
+						}
+						else
+							std::cout << "Element already exists" << std::endl;
 					}
+					else
+						std::cout << "Playlist requires a name and at least one audio source" << std::endl;
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
 				{
-					assets.ShowingPlaylistCreator = false;
-					assets.ShowingPlaylistCreator = false;
+					assets.selectedAudio.clear();
+					assets.ShowingPlaylistCreatorMenu = false;
 					ImGui::CloseCurrentPopup();
 				}
 				ImGui::EndPopup();
@@ -151,17 +128,29 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 
 		if (ImGui::CollapsingHeader("Playlists"))
 		{
-
-			for (std::set<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end(); ++it)
-				if (ImGui::CollapsingHeader(((*it).first).c_str())) { // List playlist titles
+			for (std::set<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end();)
+				if (ImGui::CollapsingHeader(((*it).first).c_str()))
+				{
 					ImGui::Text("Playlist Audio");
 					ImGui::NewLine();
 					for (std::set<Audio>::iterator audioIt = it->second.begin(); audioIt != it->second.end(); ++audioIt)
 					{
 						ImGui::SameLine();
-						ImGui::Text(((audioIt->first) + "  ").c_str()); // Output the label of each audio element in the playlist
+						ImGui::Text(((audioIt->first) + "  ").c_str());
 					}
 					ImGui::NewLine();
+					if (ImGui::Button("Delete Playlist")) // Erase the playlist and get the next valid iterator
+					{
+						it = assets.PlayLists.erase(it);
+					}
+					else
+					{
+						++it;
+					}
+				}
+				else
+				{
+					++it;
 				}
 		}
 

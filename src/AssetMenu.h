@@ -23,7 +23,7 @@ public:
 	static void AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine);
 
 	// Asset Import/Build Functions
-	
+
 	// Import model to be used as a WO
 	void importModel(const std::string& path);
 	// Import Audio to be used for 2D and 3D audio
@@ -35,8 +35,6 @@ public:
 
 protected:
 	bool ShowingPlaylistCreatorMenu = false;
-	bool ShowingPlaylistCreator = false;
-	bool CanUseEnterKey = false; // Required to prevent immediate close of popup after pressing enter
 	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
 	std::list<WO*> WorldObjects;
 	std::list<Audio> AudioSources;
