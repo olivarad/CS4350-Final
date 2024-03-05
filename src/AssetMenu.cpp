@@ -18,6 +18,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 	ImGui::Begin("AssetMenu");
 
 	{
+		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) && !assets.ShowingPlaylistCreatorMenu)
+			ImGui::SetWindowCollapsed(true);
 		if (ImGui::Button("Import Asset"))
 			gui->fileDialog_show_Open("");
 		if (gui->fileDialog_has_selected_path("")) {
@@ -55,34 +57,111 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::Button("Make Playlist"))
 		{
-			assets.ShowingPlaylistCreator = true;
-			//std::cout << playlistName << std::endl;
+			std::memset(playlistName, '\0', sizeof(playlistName));
+			assets.ShowingPlaylistCreatorMenu = true;
 		}
-		if (assets.ShowingPlaylistCreator)
+		if (assets.ShowingPlaylistCreatorMenu)
 		{
-			ImGui::OpenPopup("Playlist Creator");
-			if (ImGui::BeginPopup("Playlist Creator"))
+			ImGui::OpenPopup("Playlist Creator Menu");
+			if (ImGui::BeginPopup("Playlist Creator Menu"))
 			{
 				ImVec2 popupSize = ImGui::GetWindowSize();
 				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
 				ImGui::SetWindowPos(centerPos);
-				std::memset(playlistName, '\0', sizeof(playlistName));
-				ImGui::Text("Playlist Creator");
+				ImGui::Text("Playlist Creator Menu");
 				ImGui::InputText("Playlist Name", playlistName, sizeof(playlistName));
-				if (ImGui::Button("Cancel"))
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::SameLine();
+				if (ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
 				{
+					if (playlistName[0] != '\0') // Name is not empty
+					{
+						assets.CanUseEnterKey = false;
+						assets.selectedAudio.clear();
+						assets.ShowingPlaylistCreator = true;
+						std::cout << "Playlist Name: " << playlistName << std::endl;
+						assets.ShowingPlaylistCreatorMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+				{
+					assets.ShowingPlaylistCreatorMenu = false;
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::EndPopup();
+			}
+		}
+		if (assets.ShowingPlaylistCreator)
+		{
+			if (ImGui::IsKeyReleased(ImGui::GetKeyIndex(ImGuiKey_Enter)))
+				assets.CanUseEnterKey = true;
+			ImGui::OpenPopup("Playlist Audio Selector");
+			if (ImGui::BeginPopup("Playlist Audio Selector"))
+			{
+				ImVec2 popupSize = ImGui::GetWindowSize();
+				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
+				ImGui::SetWindowPos(centerPos);
+				ImGui::Text(("Playlist (" + std::string(playlistName) + ") Audio Selector").c_str());
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::Text("Select Audio");
+				ImGui::NewLine();
+				ImGui::Spacing();
+				for (std::list<Audio>::const_iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
+				{
+					ImGui::SameLine();
+					if (ImGui::Button((it->first).c_str()))
+						assets.selectedAudio.insert(*it);
+				}
+				ImGui::NewLine();
+				ImGui::Text("Selected Audio Sources");
+				ImGui::NewLine();
+				for (std::set<Audio>::const_iterator it = assets.selectedAudio.begin(); it != assets.selectedAudio.end(); ++it)
+				{
+					ImGui::SameLine();
+					ImGui::Text(std::string(it->first + "  ").c_str());
+				}
+				ImGui::NewLine();
+				ImGui::SameLine();
+				if (ImGui::Button("Confirm") || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)) && assets.CanUseEnterKey))
+				{
+					if (!assets.selectedAudio.empty())
+					{
+						PlayList playlist {playlistName, assets.selectedAudio};
+						assets.PlayLists.insert(playlist);
+						assets.ShowingPlaylistCreator = false;
+						ImGui::CloseCurrentPopup();
+					}
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+				{
+					assets.ShowingPlaylistCreator = false;
 					assets.ShowingPlaylistCreator = false;
 					ImGui::CloseCurrentPopup();
 				}
 				ImGui::EndPopup();
 			}
 		}
+
 		if (ImGui::CollapsingHeader("Playlists"))
 		{
-			for (std::list<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end(); ++it)
+
+			for (std::set<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end(); ++it)
 				if (ImGui::CollapsingHeader(((*it).first).c_str())) { // List playlist titles
-					for (std::list<Audio>::iterator audioIt = (*it).second.begin(); audioIt != (*it).second.end(); ++audioIt)
-						ImGui::Text(((*audioIt).first).c_str()); // Output the label of each audio element in the playlist
+					ImGui::Text("Playlist Audio");
+					ImGui::NewLine();
+					for (std::set<Audio>::iterator audioIt = it->second.begin(); audioIt != it->second.end(); ++audioIt)
+					{
+						ImGui::SameLine();
+						ImGui::Text(((audioIt->first) + "  ").c_str()); // Output the label of each audio element in the playlist
+					}
+					ImGui::NewLine();
 				}
 		}
 
