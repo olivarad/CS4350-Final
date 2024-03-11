@@ -34,7 +34,7 @@ public:
 	void addAudio(FullAsset& fullAsset, Audio* audio) { fullAsset.second.push_back(audio); }
 
 protected:
-	PlayList* currentPlaylist = nullptr;
+	std::string currentPlaylist = "";
 	irrklang::ISoundSource* currentPlaylistAudio = nullptr;
 	bool ShowingPlaylistCreatorMenu = false;
 	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;

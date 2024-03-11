@@ -49,7 +49,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					if (assets.CurrentBackgroudSound != nullptr)
 						engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
-					assets.currentPlaylist = nullptr;
+					assets.currentPlaylist = "";
 					assets.currentPlaylistAudio = nullptr;
 					assets.CurrentBackgroudSound = (*it).second;
 					//std::cout << assets.CurrentBackgroudSound << std::endl;
@@ -61,7 +61,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
 					assets.CurrentBackgroudSound = nullptr;
-					assets.currentPlaylist = nullptr;
+					assets.currentPlaylist = "";
 					assets.currentPlaylistAudio = nullptr;
 				}
 			}
@@ -108,23 +108,32 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					ImGui::SameLine();
 					ImGui::Text(std::string(it->first + "  ").c_str());
 				}
-				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))) &&  std::string(playlistName) != ("Stop Audio Playback"))
+				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))) && std::string(playlistName) != "Stop Audio Playback")
 				{
 					if (playlistName[0] != '\0' && !assets.selectedAudio.empty())
 					{
-						auto it = std::find(assets.PlayLists.begin(), assets.PlayLists.end(), std::make_pair(playlistName, assets.selectedAudio));
-						if (it == assets.PlayLists.end()) // Element does not exist
+
+						// Check if the playlist name is already used
+						static std::set<std::string> usedPlaylistNames;
+						if (usedPlaylistNames.find(playlistName) == usedPlaylistNames.end())
 						{
-							assets.PlayLists.push_back({ playlistName ,assets.selectedAudio });
+							assets.PlayLists.push_back({ playlistName, assets.selectedAudio });
 							assets.selectedAudio.clear();
 							assets.ShowingPlaylistCreatorMenu = false;
 							ImGui::CloseCurrentPopup();
+
+							// Mark the playlist name as used
+							usedPlaylistNames.insert(playlistName);
 						}
 						else
-							std::cout << "Element already exists" << std::endl;
+						{
+							std::cout << "Playlist with the name '" << playlistName << "' already exists." << std::endl;
+						}
 					}
 					else
+					{
 						std::cout << "Playlist requires a name and at least one audio source (name cannot be \"Stop Audio Playback\")" << std::endl;
+					}
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
@@ -151,7 +160,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						{
 							if (assets.CurrentBackgroudSound != nullptr)
 								engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
-							assets.currentPlaylist = &(*it);
+							assets.currentPlaylist = it->first;
 							assets.currentPlaylistAudio = audioIt->second;
 							assets.CurrentBackgroudSound = audioIt->second;
 							//std::cout << assets.CurrentBackgroudSound << std::endl;
@@ -165,19 +174,19 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						{
 							engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
 							assets.CurrentBackgroudSound = nullptr;
-							assets.currentPlaylist = nullptr;
+							assets.currentPlaylist = "";
 							assets.currentPlaylistAudio = nullptr;
 						}
 					}
 					ImGui::NewLine();
 					if (ImGui::Button("Delete Playlist")) // Erase the playlist and get the next valid iterator
 					{
-						if (assets.currentPlaylist == &(*it)) // same playlist
+						if (assets.currentPlaylist == it->first) // same playlist
 						{
 							if (assets.CurrentBackgroudSound != nullptr)
 								engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
 							assets.CurrentBackgroudSound = nullptr;
-							assets.currentPlaylist = nullptr;
+							assets.currentPlaylist = "";
 							assets.currentPlaylistAudio = nullptr;
 						}
 						it = assets.PlayLists.erase(it);
@@ -192,15 +201,42 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					++it;
 				}
 		}
-		if (assets.currentPlaylist != nullptr && assets.currentPlaylistAudio != nullptr)
+		if (!assets.currentPlaylist.empty() && assets.currentPlaylistAudio != nullptr)
 		{
 			std::cout << "Playing Playlist Audio" << std::endl;
-			if (!engine->isCurrentlyPlaying (assets.currentPlaylistAudio->getName()))
+
+			if (!engine->isCurrentlyPlaying(assets.currentPlaylistAudio->getName()))
 			{
-				assets.currentPlaylistAudio = nullptr;
-				assets.currentPlaylist = nullptr;
+				for (auto playlistIterator = assets.PlayLists.begin(); playlistIterator != assets.PlayLists.end(); ++playlistIterator)
+				{
+					if (playlistIterator->first == assets.currentPlaylist)
+					{
+						PlayList currentPlaylist = *playlistIterator;
+
+						for (auto audioIterator = currentPlaylist.second.begin(); audioIterator != currentPlaylist.second.end(); ++audioIterator)
+						{
+							if (audioIterator->second == assets.currentPlaylistAudio) // current audio found
+							{
+								auto nextAudio = std::next(audioIterator);
+								if (nextAudio != currentPlaylist.second.end())
+								{
+									assets.CurrentBackgroudSound = assets.currentPlaylistAudio = nextAudio->second;
+									engine->play2D(assets.currentPlaylistAudio);
+								}
+								else
+								{
+									assets.currentPlaylistAudio = nullptr;
+									assets.currentPlaylist = "";
+								}
+								break;
+							}
+						}
+						break;
+					}
+				}
 			}
 		}
+
 	}
 	ImGui::End();
 
