@@ -54,6 +54,14 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					engine->play2D((*it).second);
 
 				}
+			if (ImGui::Button("Stop Audio Playback"))
+			{
+				if (assets.CurrentBackgroudSound != nullptr)
+				{
+					engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
+					assets.CurrentBackgroudSound = nullptr;
+				}
+			}
 		}
 		if (ImGui::Button("Make Playlist"))
 		{
@@ -143,6 +151,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 							assets.CurrentBackgroudSound = audioIt->second;
 							//std::cout << assets.CurrentBackgroudSound << std::endl;
 							engine->play2D(audioIt->second);
+						}
+					}
+					ImGui::NewLine;
+					if (ImGui::Button("Stop Audio Playback"))
+					{
+						if (assets.CurrentBackgroudSound != nullptr)
+						{
+							engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
+							assets.CurrentBackgroudSound = nullptr;
 						}
 					}
 					ImGui::NewLine();
