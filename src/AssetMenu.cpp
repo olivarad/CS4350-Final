@@ -44,14 +44,14 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::CollapsingHeader("Audio"))
 		{
-			for (std::list<Audio>::iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
+			for (std::set<Audio>::iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
 				if (ImGui::Button(((*it).first).c_str()))
 				{
-					//if (assets.CurrentBackgroudSound != nullptr)
-						//engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
-					//assets.CurrentBackgroudSound = (*it).second;
+					if (assets.CurrentBackgroudSound != nullptr)
+						engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
+					assets.CurrentBackgroudSound = (*it).second;
 					//std::cout << assets.CurrentBackgroudSound << std::endl;
-					//engine->play2D((*it).second);
+					engine->play2D((*it).second);
 
 				}
 		}
@@ -77,22 +77,22 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				ImGui::Text("Select Audio");
 				ImGui::NewLine();
 				ImGui::Spacing();
-				for (std::list<Audio>::const_iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
+				for (std::set<Audio>::const_iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
 				{
 					ImGui::SameLine();
 					if (ImGui::Button((it->first).c_str()))
 					{
-						auto selectedAudioIterator = assets.selectedAudio.find(*it);
+						auto selectedAudioIterator = std::find(assets.selectedAudio.begin(), assets.selectedAudio.end(), *it);
 						if (selectedAudioIterator != assets.selectedAudio.end()) // Audio already exists in hypothetical playlist
-							assets.selectedAudio.erase(*it);
-						else // Audio is not in hypothetical playlist
-							assets.selectedAudio.insert(*it);
+							assets.selectedAudio.remove(*it);
+						else
+							assets.selectedAudio.push_back(*it);
 					}
 				}
 				ImGui::NewLine();
 				ImGui::Text("Selected Audio Sources");
 				ImGui::NewLine();
-				for (std::set<Audio>::const_iterator it = assets.selectedAudio.begin(); it != assets.selectedAudio.end(); ++it)
+				for (std::list<Audio>::const_iterator it = assets.selectedAudio.begin(); it != assets.selectedAudio.end(); ++it)
 				{
 					ImGui::SameLine();
 					ImGui::Text(std::string(it->first + "  ").c_str());
@@ -133,10 +133,17 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					ImGui::Text("Playlist Audio");
 					ImGui::NewLine();
-					for (std::set<Audio>::iterator audioIt = it->second.begin(); audioIt != it->second.end(); ++audioIt)
+					for (std::list<Audio>::const_iterator audioIt = it->second.begin(); audioIt != it->second.end(); ++audioIt)
 					{
 						ImGui::SameLine();
-						ImGui::Text(((audioIt->first) + "  ").c_str());
+						if (ImGui::Button(((audioIt->first) + "  ").c_str()))
+						{
+							if (assets.CurrentBackgroudSound != nullptr)
+								engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
+							assets.CurrentBackgroudSound = audioIt->second;
+							//std::cout << assets.CurrentBackgroudSound << std::endl;
+							engine->play2D(audioIt->second);
+						}
 					}
 					ImGui::NewLine();
 					if (ImGui::Button("Delete Playlist")) // Erase the playlist and get the next valid iterator
@@ -187,10 +194,10 @@ void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFil
 	if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
 		name = name.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
 	// Check if audio source already exists
-	for (std::list<Audio>::iterator it = AudioSources.begin(); it != AudioSources.end(); ++it)
+	for (std::set<Audio>::iterator it = AudioSources.begin(); it != AudioSources.end(); ++it)
 	{
 		if ((*it).first == name)
 			return;
 	}
-	AudioSources.push_back(std::make_pair(name, engine->addSoundSourceFromFile(soundFileName)));
+	AudioSources.insert(std::make_pair(name, engine->addSoundSourceFromFile(soundFileName)));
 }
