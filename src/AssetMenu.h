@@ -34,11 +34,13 @@ public:
 	void addAudio(FullAsset& fullAsset, Audio* audio) { fullAsset.second.push_back(audio); }
 
 protected:
+	PlayList* currentPlaylist = nullptr;
+	irrklang::ISoundSource* currentPlaylistAudio = nullptr;
 	bool ShowingPlaylistCreatorMenu = false;
 	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
 	std::list<WO*> WorldObjects;
 	std::set<Audio> AudioSources;
-	std::set<PlayList> PlayLists;
+	std::list<PlayList> PlayLists;
 	std::list<FullAsset> FullAssets;
 	std::list<Audio> selectedAudio;
 };
