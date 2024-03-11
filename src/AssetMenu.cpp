@@ -105,7 +105,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					ImGui::SameLine();
 					ImGui::Text(std::string(it->first + "  ").c_str());
 				}
-				if (ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
+				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))) &&  std::string(playlistName) != ("Stop Audio Playback"))
 				{
 					if (playlistName[0] != '\0' && !assets.selectedAudio.empty())
 					{
@@ -121,7 +121,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 							std::cout << "Element already exists" << std::endl;
 					}
 					else
-						std::cout << "Playlist requires a name and at least one audio source" << std::endl;
+						std::cout << "Playlist requires a name and at least one audio source (name cannot be \"Stop Audio Playback\")" << std::endl;
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
@@ -210,6 +210,8 @@ void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFil
 	int lastDotPos = name.rfind('.'); // Find the position of the last '.'
 	if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
 		name = name.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
+	if (name == "Stop Audio Playback")
+		return;
 	// Check if audio source already exists
 	for (std::set<Audio>::iterator it = AudioSources.begin(); it != AudioSources.end(); ++it)
 	{
