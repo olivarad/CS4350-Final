@@ -21,9 +21,9 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) && !assets.ShowingPlaylistCreatorMenu)
 			ImGui::SetWindowCollapsed(true);
 		if (ImGui::Button("Import Asset"))
-			gui->fileDialog_show_Open("");
-		if (gui->fileDialog_has_selected_path("")) {
-			selected_path = *gui->fileDialog_get_selected_path(""); //can only get one time, this clears the dialog's state!
+			gui->fileDialog_show_Open("Select obj or wav files");
+		if (gui->fileDialog_has_selected_path("Select obj or wav files")) {
+			selected_path = *gui->fileDialog_get_selected_path("Select obj or wav files"); //can only get one time, this clears the dialog's state!
 			std::string pathAsString = selected_path.string();
 
 			int pathLength = pathAsString.length(); // Prevents multiple identical function calls
@@ -32,8 +32,20 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				std::string extension = pathAsString.substr(pathLength - 3);
 
 				if (extension == "obj")
-					assets.importModel(pathAsString);
-				if (extension == "wav")
+				{	
+					gui->fileDialog_show_Open("Select jpg file to skin model");
+					if (gui->fileDialog_has_selected_path("Select jpg file to skin model"))
+					{
+						static std::filesystem::path texturePath = *gui->fileDialog_get_selected_path("Select jpg file to skin model");
+						std::string texturePathString = texturePath.string();
+						extension = texturePathString.substr(texturePathString.length() - 3);
+						if (extension == "jpg")
+							assets.importModel(pathAsString, texturePathString);
+						else
+							std::cerr << "Invalid File Extension" << std::endl;
+					}
+				}
+				else if (extension == "wav")
 					assets.importAudio(engine, pathAsString.c_str());
 			}
 		}
@@ -242,23 +254,28 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 
 }
 
-void AssetMenu::importModel(const std::string& path)
+void AssetMenu::importModel(const std::string& path, const std::string& texturePath)
 {
 	std::string label = path;
 	int lastSlashPos = path.rfind('\\'); // Find the position of the last '/'
 	int lastDotPos = path.rfind('.'); // Find the position of the last '.'
 	if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
 		label = path.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
-	// Check if asset already exists
-	for (std::list<WO*>::iterator it = WorldObjects.begin(); it != WorldObjects.end(); ++it)
-	{
-		if ((*it)->getLabel() == label)
-			return;
-	}
 	WO* wo = WO::New((path), Vector(1, 1, 1));
 	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+	wo->upon_async_model_loaded([wo, texturePath]()
+		{
+			ModelMeshSkin skin(ManagerTex::loadTexAsync(texturePath).value());
+			skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
+			skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
+			skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
+			skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
+			skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
+			wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
+		});
 	wo->setLabel(label);
 	WorldObjects.push_back(wo);
+	worldLst->push_back(wo);
 }
 
 void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFileName)

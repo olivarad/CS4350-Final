@@ -476,7 +476,7 @@ void Aftr::GLViewNewModule::loadMap()
 	gui->subscribe_drawImGuiWidget(
 		[this, gui]() //this is a lambda, the capture clause is in [], the input argument list is in (), and the body is in {}
 		{
-			assets.AssetMenuGUI(gui, assets, engine);
+			assets.AssetMenuGUI(gui, assets, engine, worldLst);
 			//audioPlayer.AudioPlayerGUI(gui, assets.AudioSources, engine);
 			/*
 			{
