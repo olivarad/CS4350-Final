@@ -12,7 +12,7 @@
 using namespace Aftr;
 
 typedef std::pair<std::string, irrklang::ISoundSource*> Audio; // Name of audio file, Source for play with 2D and 3D audio
-typedef std::pair < std::string, std::list<Audio>> PlayList; // Name of playlist, Audio element
+typedef std::pair<std::string, std::list<Audio>> PlayList; // Name of playlist, Audio element
 typedef std::pair<WO*, std::list<Audio*>> FullAsset; // World object with all of its potential sounds
 
 class AssetMenu
@@ -25,7 +25,7 @@ public:
 	// Asset Import/Build Functions
 
 	// Import model to be used as a WO
-	void importModel(const std::string& path, const std::string& texturePath);
+	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture);
 	// Import Audio to be used for 2D and 3D audio
 	void importAudio(irrklang::ISoundEngine* engine, const char* soundFileName);
 	// Creates a full asset with one audio source, more can be added later
@@ -37,7 +37,10 @@ protected:
 	std::string currentPlaylist = "";
 	irrklang::ISoundSource* currentPlaylistAudio = nullptr;
 	bool ShowingPlaylistCreatorMenu = false;
+	bool ShowingAssetCreatorMenu = false;
 	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
+	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
+	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
 	std::list<WO*> WorldObjects;
 	std::set<Audio> AudioSources;
 	std::list<PlayList> PlayLists;

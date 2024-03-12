@@ -10,21 +10,23 @@
 #include "AssetMenu.h"
 using namespace Aftr;
 
-void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine) 
+void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine)
 {
 	ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
 	static std::filesystem::path selected_path = "";
 	static AftrImGui_Markdown_Renderer md_render = Aftr::make_default_MarkdownRenderer();
 	static char playlistName[256] = {};
+	static std::string pathAsString = "";
 	ImGui::Begin("AssetMenu");
 	{
 		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) && !assets.ShowingPlaylistCreatorMenu)
 			ImGui::SetWindowCollapsed(true);
 		if (ImGui::Button("Import Asset"))
-			gui->fileDialog_show_Open("Select obj or wav files");
-		if (gui->fileDialog_has_selected_path("Select obj or wav files")) {
-			selected_path = *gui->fileDialog_get_selected_path("Select obj or wav files"); //can only get one time, this clears the dialog's state!
-			std::string pathAsString = selected_path.string();
+			gui->fileDialog_show_Open("");
+		if (gui->fileDialog_has_selected_path(""))
+		{
+			selected_path = *gui->fileDialog_get_selected_path(""); //can only get one time, this clears the dialog's state!
+			pathAsString = selected_path.string();
 
 			int pathLength = pathAsString.length(); // Prevents multiple identical function calls
 			if (pathLength > 4) // Impossible path (5 characters is minimum path length)
@@ -32,32 +34,100 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				std::string extension = pathAsString.substr(pathLength - 3);
 
 				if (extension == "obj")
-				{	
-					gui->fileDialog_show_Open("Select jpg file to skin model");
-					if (gui->fileDialog_has_selected_path("Select jpg file to skin model"))
-					{
-						static std::filesystem::path texturePath = *gui->fileDialog_get_selected_path("Select jpg file to skin model");
-						std::string texturePathString = texturePath.string();
-						extension = texturePathString.substr(texturePathString.length() - 3);
-						if (extension == "jpg")
-							assets.importModel(pathAsString, texturePathString);
-						else
-							std::cerr << "Invalid File Extension" << std::endl;
-					}
+				{
+					std::string label = pathAsString;
+					int lastSlashPos = pathAsString.rfind('\\'); // Find the position of the last '/'
+					int lastDotPos = pathAsString.rfind('.'); // Find the position of the last '.'
+					if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
+						label = pathAsString.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
+					assets.objectsPaths.insert(std::make_pair(label, pathAsString)); // store the object to be imported fully after texturing
 				}
 				else if (extension == "wav")
 					assets.importAudio(engine, pathAsString.c_str());
+				else if (extension == "jpg")
+				{
+					std::string label = pathAsString;
+					int lastSlashPos = pathAsString.rfind('\\'); // Find the position of the last '/'
+					int lastDotPos = pathAsString.rfind('.'); // Find the position of the last '.'
+					if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
+						label = pathAsString.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
+					assets.texturePaths.insert(std::make_pair(label, pathAsString)); // Store texture to skin object at a later time
+				}
+				else
+					std::cerr << "Invalid File Extension" << std::endl;
 			}
+			else
+				std::cerr << "Impossible File Path Length" << std::endl;
 		}
 		if (ImGui::CollapsingHeader("Assets"))
 		{
 			for (std::list<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
 				ImGui::Text(("    " + (*it)->getLabel()).c_str());
+			if (ImGui::Button("Create Asset From Model And Texture"))
+				assets.ShowingAssetCreatorMenu = true;
+		}
+		if (assets.ShowingAssetCreatorMenu)
+		{
+			ImGui::OpenPopup("Asset Creator");
+			if (ImGui::BeginPopup("Asset Creator"))
+			{
+				static std::pair<std::string, std::string> selectedModel = std::make_pair("", "");
+				static std::pair<std::string, std::string> selectedTexture = std::make_pair("", "");
+				ImVec2 popupSize = ImGui::GetWindowSize();
+				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
+				ImGui::SetWindowPos(centerPos);
+				ImGui::Text("Asset Creator");
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::Text("Select Model");
+				ImGui::NewLine();
+				ImGui::Spacing();
+				for (std::set<std::pair<std::string, std::string>>::const_iterator it = assets.objectsPaths.begin(); it != assets.objectsPaths.end(); ++it)
+				{
+					ImGui::SameLine();
+					if (ImGui::Button((it->first).c_str()))
+						selectedModel = *it;
+				}
+				ImGui::NewLine();
+				ImGui::Text("Select Texture");
+				ImGui::NewLine();
+				ImGui::Spacing();
+				for (std::set<std::pair<std::string, std::string>>::const_iterator it = assets.texturePaths.begin(); it != assets.texturePaths.end(); ++it)
+				{
+					ImGui::SameLine();
+					if (ImGui::Button((it->first).c_str()))
+						selectedTexture = *it;
+				}
+
+				ImGui::Text("Selected (Model, Texture) Pair");
+				ImGui::SameLine();
+				ImGui::Text((" (" + selectedModel.first + ", " + selectedTexture.first + ")").c_str());
+				ImGui::NewLine();
+				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
+				{
+					if (selectedModel.first != "" && selectedTexture.first != "")
+					{
+						assets.textureModel(selectedModel, selectedTexture);
+						assets.ShowingAssetCreatorMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
+					else
+						std::cout << "Assets requires a model and a texture" << std::endl;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+				{
+					assets.ShowingAssetCreatorMenu = false;
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::EndPopup();
+			}
 		}
 		if (ImGui::CollapsingHeader("Audio"))
 		{
 			for (std::set<Audio>::iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
-				if (ImGui::Button(((*it).first).c_str()))
+				if (ImGui::Button(("    " + (*it).first).c_str()))
 				{
 					if (assets.CurrentBackgroudSound != nullptr)
 						engine->stopAllSoundsOfSoundSource(assets.CurrentBackgroudSound);
@@ -254,18 +324,13 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 
 }
 
-void AssetMenu::importModel(const std::string& path, const std::string& texturePath)
+void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture)
 {
-	std::string label = path;
-	int lastSlashPos = path.rfind('\\'); // Find the position of the last '/'
-	int lastDotPos = path.rfind('.'); // Find the position of the last '.'
-	if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
-		label = path.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
-	WO* wo = WO::New((path), Vector(1, 1, 1));
+	WO* wo = WO::New((object.second), Vector(1, 1, 1));
 	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-	wo->upon_async_model_loaded([wo, texturePath]()
+	wo->upon_async_model_loaded([wo, texture]()
 		{
-			ModelMeshSkin skin(ManagerTex::loadTexAsync(texturePath).value());
+			ModelMeshSkin skin(ManagerTex::loadTexAsync(texture.second).value());
 			skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
 			skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
 			skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
@@ -273,9 +338,8 @@ void AssetMenu::importModel(const std::string& path, const std::string& textureP
 			skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
 			wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
 		});
-	wo->setLabel(label);
+	wo->setLabel(object.first + "-" + texture.first);
 	WorldObjects.push_back(wo);
-	worldLst->push_back(wo);
 }
 
 void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFileName)
