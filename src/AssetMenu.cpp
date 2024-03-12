@@ -5,17 +5,19 @@
 #include "WOImGui.h"
 #include "AftrImGuiIncludes.h"
 #include "AftrImgui_Markdown_Renderer.h"
+#include "WorldContainer.h"
 #include <list>
 #include <string>
 #include "AssetMenu.h"
 using namespace Aftr;
 
-void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine)
+void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst)
 {
 	ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
 	static std::filesystem::path selected_path = "";
 	static AftrImGui_Markdown_Renderer md_render = Aftr::make_default_MarkdownRenderer();
 	static char playlistName[256] = {};
+	static char label[256] = {};
 	static std::string pathAsString = "";
 	ImGui::Begin("AssetMenu");
 	{
@@ -61,7 +63,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::CollapsingHeader("Assets"))
 		{
-			for (std::list<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
+			for (std::set<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
 				ImGui::Text(("    " + (*it)->getLabel()).c_str());
 			if (ImGui::Button("Create Asset From Model And Texture"))
 				assets.ShowingAssetCreatorMenu = true;
@@ -119,6 +121,71 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
 				{
 					assets.ShowingAssetCreatorMenu = false;
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::EndPopup();
+			}
+		}
+		if (ImGui::Button("Instance Object"))
+		{
+			std::memset(label, '\0', sizeof(label));
+			assets.ShowingInstanceObjectMenu = true;
+		}
+		if (assets.ShowingInstanceObjectMenu)
+		{
+			ImGui::OpenPopup("Instance Object Menu");
+			if (ImGui::BeginPopup("Instance Object Menu"))
+			{
+				static WO* wo;
+				static float x = 0;
+				static float y = 0;
+				static float z = 0;
+				ImVec2 popupSize = ImGui::GetWindowSize();
+				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
+				ImGui::SetWindowPos(centerPos);
+				ImGui::Text("Instance Object Menu");
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+				ImGui::Text("Provide Label");
+				ImGui::NewLine();
+				ImGui::InputText("label", label, sizeof(label));
+				ImGui::NewLine();
+				ImGui::Text("Choose Object");
+				ImGui::NewLine();
+				for (std::set<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
+				{
+					if (ImGui::Button((&(*it)->getLabel())->c_str()))
+						wo = *it;
+					ImGui::NewLine();
+				}
+				ImGui::Text("Provide position");
+				ImGui::NewLine();
+				ImGui::InputFloat("X:", &x);
+				ImGui::SameLine();
+				ImGui::InputFloat(" Y:", &y);
+				ImGui::SameLine();
+				ImGui::InputFloat(" X:", &z);
+				ImGui::NewLine();
+				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
+				{
+					if (label[0] != '\0' && wo->getLabel() != "")
+					{
+						assets.addObjectToWorld(label, wo, worldLst, Vector(x, y, z));
+						assets.ShowingInstanceObjectMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
+					else if (wo->getLabel() != "")
+					{
+						assets.addObjectToWorld(wo->getLabel(), wo, worldLst, Vector(x, y, z));
+						assets.ShowingInstanceObjectMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+				{
+					assets.ShowingInstanceObjectMenu = false;
 					ImGui::CloseCurrentPopup();
 				}
 				ImGui::EndPopup();
@@ -339,7 +406,14 @@ void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, 
 			wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
 		});
 	wo->setLabel(object.first + "-" + texture.first);
-	WorldObjects.push_back(wo);
+	WorldObjects.insert(wo);
+}
+
+void AssetMenu::addObjectToWorld(const std::string& label, WO* wo, WorldContainer* worldLst, const Vector& position)
+{
+	wo->setPosition(position);
+	wo->setLabel(label);
+	worldLst->push_back(wo);
 }
 
 void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFileName)
