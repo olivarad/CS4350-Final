@@ -20,18 +20,16 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 	static char label[256] = {};
 	static std::string pathAsString = "";
 	static ObjectandTexture asset = std::make_pair(std::make_pair("", ""), std::make_pair("", ""));
-	static float x = 0;
-	static float y = 0;
-	static float z = 0;
+	static float position[3];
 	ImGui::Begin("AssetMenu");
 	{
 		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) && !assets.ShowingPlaylistCreatorMenu)
 			ImGui::SetWindowCollapsed(true);
 		if (ImGui::Button("Import Asset"))
-			gui->fileDialog_show_Open("");
-		if (gui->fileDialog_has_selected_path(""))
+			gui->fileDialog_show_Open("Select A .obj .jpg or .wav File");
+		if (gui->fileDialog_has_selected_path("Select A .obj .jpg or .wav File"))
 		{
-			selected_path = *gui->fileDialog_get_selected_path(""); //can only get one time, this clears the dialog's state!
+			selected_path = *gui->fileDialog_get_selected_path("Select A .obj .jpg or .wav File"); //can only get one time, this clears the dialog's state!
 			pathAsString = selected_path.string();
 
 			int pathLength = pathAsString.length(); // Prevents multiple identical function calls
@@ -86,13 +84,37 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		{
 			if (ImGui::Button("Instance Asset"))
 			{
-				x = y = z = 0;
+				std::memset(position, 0, 3);
 				asset.first.first = asset.first.second = asset.second.first = asset.second.second = "";
 				std::memset(label, '\0', sizeof(label));
 				assets.ShowingInstanceObjectMenu = true;
 			}
+			ImGui::Text("SelectedInstance: ");
+			ImGui::SameLine();
+			assets.selectedInstance == nullptr ? ImGui::Text("No Instance Selected") : ImGui::Text((assets.selectedInstance->getLabel()).c_str());
+			ImGui::Text("Modify Position");
+			ImGui::InputFloat3(" ", position);
+			ImGui::Text("Modify Rotation");
+			if (ImGui::Button("45 DEG") && assets.selectedInstance != nullptr)
+				assets.selectedInstance->rotateAboutGlobalZ(45 * DEGtoRAD);
+			ImGui::SameLine();
+			if (ImGui::Button("-45 DEG") && assets.selectedInstance != nullptr)
+				assets.selectedInstance->rotateAboutGlobalZ(-45 * DEGtoRAD);
+			if (ImGui::Button("Clear Selection"))
+				assets.selectedInstance = nullptr;
+			if (assets.selectedInstance != nullptr)
+			{
+				assets.selectedInstance->setPosition(Vector(position[0], position[1], position[2]));
+			}
 			for (std::list<WO*>::const_iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
-				ImGui::Text(("    " + (*it)->getLabel()).c_str());
+				if (ImGui::Button(((*it)->getLabel()).c_str()))
+				{
+					assets.selectedInstance = *it;
+					Vector pos = (*it)->getPosition();
+					position[0] = pos[0];
+					position[1] = pos[1];
+					position[2] = pos[2];
+				}
 		}
 		if (assets.ShowingAssetCreatorMenu)
 		{
@@ -177,24 +199,18 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					ImGui::NewLine();
 				}
 				ImGui::Text("Provide position");
-				ImGui::NewLine();
-				ImGui::InputFloat("X:", &x);
-				ImGui::SameLine();
-				ImGui::InputFloat(" Y:", &y);
-				ImGui::SameLine();
-				ImGui::InputFloat(" X:", &z);
-				ImGui::NewLine();
+				ImGui::InputFloat3(" ", position);
 				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
 				{
 					if (label[0] != '\0' && asset.first.second != "" && asset.second.second != "")
 					{
-						assets.instanceObject(label, asset, worldLst, Vector(x, y, z));
+						assets.instanceObject(label, asset, worldLst, Vector(position[0], position[1], position[2]));
 						assets.ShowingInstanceObjectMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
 					else if (asset.first.second != "" && asset.second.second != "")
 					{
-						assets.instanceObject(std::string(asset.first.first + "-" + asset.second.first), asset, worldLst, Vector(x, y, z));
+						assets.instanceObject(std::string(asset.first.first + "-" + asset.second.first), asset, worldLst, Vector(position[0], position[1], position[2]));
 						assets.ShowingInstanceObjectMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
@@ -210,6 +226,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::CollapsingHeader("Audio"))
 		{
+			if (ImGui::SliderFloat("Master Volume", &assets.masterVolume, 0, 1))
+				engine->setSoundVolume(assets.masterVolume);
 			for (std::set<Audio>::iterator it = assets.AudioSources.begin(); it != assets.AudioSources.end(); ++it)
 				if (ImGui::Button(("    " + (*it).first).c_str()))
 				{
@@ -231,12 +249,6 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					assets.currentPlaylistAudio = nullptr;
 				}
 			}
-		}
-		if (ImGui::Button("Make Playlist"))
-		{
-			std::memset(playlistName, '\0', sizeof(playlistName));
-			assets.selectedAudio.clear();
-			assets.ShowingPlaylistCreatorMenu = true;
 		}
 		if (assets.ShowingPlaylistCreatorMenu)
 		{
@@ -314,6 +326,14 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 
 		if (ImGui::CollapsingHeader("Playlists"))
 		{
+			if (ImGui::SliderFloat("Master Volume", &assets.masterVolume, 0, 1))
+				engine->setSoundVolume(assets.masterVolume);
+			if (ImGui::Button("Make Playlist"))
+			{
+				std::memset(playlistName, '\0', sizeof(playlistName));
+				assets.selectedAudio.clear();
+				assets.ShowingPlaylistCreatorMenu = true;
+			}
 			for (std::list<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end();)
 				if (ImGui::CollapsingHeader(("    " + (*it).first).c_str()))
 				{

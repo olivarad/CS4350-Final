@@ -48,9 +48,11 @@ protected:
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
 	std::set<ObjectandTexture> texturedObjects;
+	WO* selectedInstance = nullptr;
 	std::list<WO*> WorldObjects;
 	std::set<Audio> AudioSources;
 	std::list<PlayList> PlayLists;
 	std::list<FullAsset> FullAssets;
 	std::list<Audio> selectedAudio;
+	float masterVolume = 1.0;
 };

@@ -45,22 +45,10 @@ namespace Aftr
 		int currentSky = 0;
 		std::vector<WO*> skyptrs;
 		bool moveInputStates[6]; // wasdz"space", 1 is pressed and 0 is not pressed LCTRL is down space is up
-		std::vector<WO*> GUIobjects; // Store objects to be used by GUI and their x, y, and z rotation values
-		int objectSelector = 0; // GUI object selector
-		bool rotationScaleSelector = 0; // 0 for local, 1 for global
-		float oldLocalRotationValues[3] = { 0.0f, 0.0f, 0.0f };
-		float oldGlobalRotationValues[3] = { 0.0f, 0.0f, 0.0f };
-		float localRotationValues[3] = { 0.0f, 0.0f, 0.0f };
-		float globalRotationValues[3] = { 0.0f, 0.0f, 0.0f };
-		int placed = 1; // Number of cubes placed on camera (starts at one because a cube is initialized in the world upon running loadmap()
 
 		irrklang::ISoundEngine* engine;
-		std::vector<irrklang::ISound*> sounds;
-		int soundSelector = 0;
-		float masterVolume = 0.5f;
 
 		AssetMenu assets;
-		AudioPlayer audioPlayer;
 	};
 
 	/** \} */
