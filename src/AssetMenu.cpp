@@ -65,12 +65,34 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			else
 				std::cerr << "Impossible File Path Length" << std::endl;
 		}
+		if (ImGui::CollapsingHeader("Object Files"))
+		{
+			for (std::set<std::pair<std::string, std::string>>::const_iterator it = assets.objectsPaths.begin(); it != assets.objectsPaths.end(); ++it)
+				ImGui::Text(("    " + it->first).c_str());
+		}
+		if (ImGui::CollapsingHeader("Texture Files"))
+		{
+			for (std::set<std::pair<std::string, std::string>>::const_iterator it = assets.texturePaths.begin(); it != assets.texturePaths.end(); ++it)
+				ImGui::Text(("    " + it->first).c_str());
+		}
 		if (ImGui::CollapsingHeader("Assets"))
 		{
+			if (ImGui::Button("Create Asset From Object And Texture"))
+				assets.ShowingAssetCreatorMenu = true;
 			for (std::set<ObjectandTexture>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
 				ImGui::Text(("    " + it->first.first + "-" + it->second.first).c_str());
-			if (ImGui::Button("Create Asset From Model And Texture"))
-				assets.ShowingAssetCreatorMenu = true;
+		}
+		if (ImGui::CollapsingHeader("Instanced Assets"))
+		{
+			if (ImGui::Button("Instance Asset"))
+			{
+				x = y = z = 0;
+				asset.first.first = asset.first.second = asset.second.first = asset.second.second = "";
+				std::memset(label, '\0', sizeof(label));
+				assets.ShowingInstanceObjectMenu = true;
+			}
+			for (std::list<WO*>::const_iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
+				ImGui::Text(("    " + (*it)->getLabel()).c_str());
 		}
 		if (assets.ShowingAssetCreatorMenu)
 		{
@@ -129,13 +151,6 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				}
 				ImGui::EndPopup();
 			}
-		}
-		if (ImGui::Button("Instance Object"))
-		{
-			x = y = z = 0;
-			asset.first.first = asset.first.second = asset.second.first = asset.second.second = "";
-			std::memset(label, '\0', sizeof(label));
-			assets.ShowingInstanceObjectMenu = true;
 		}
 		if (assets.ShowingInstanceObjectMenu)
 		{
@@ -300,7 +315,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		if (ImGui::CollapsingHeader("Playlists"))
 		{
 			for (std::list<PlayList>::iterator it = assets.PlayLists.begin(); it != assets.PlayLists.end();)
-				if (ImGui::CollapsingHeader(((*it).first).c_str()))
+				if (ImGui::CollapsingHeader(("    " + (*it).first).c_str()))
 				{
 					ImGui::Text("Playlist Audio");
 					ImGui::NewLine();
