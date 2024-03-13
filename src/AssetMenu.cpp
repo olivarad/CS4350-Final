@@ -19,6 +19,10 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 	static char playlistName[256] = {};
 	static char label[256] = {};
 	static std::string pathAsString = "";
+	static ObjectandTexture asset = std::make_pair(std::make_pair("", ""), std::make_pair("", ""));
+	static float x = 0;
+	static float y = 0;
+	static float z = 0;
 	ImGui::Begin("AssetMenu");
 	{
 		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)) && !assets.ShowingPlaylistCreatorMenu)
@@ -63,8 +67,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::CollapsingHeader("Assets"))
 		{
-			for (std::set<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
-				ImGui::Text(("    " + (*it)->getLabel()).c_str());
+			for (std::set<ObjectandTexture>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
+				ImGui::Text(("    " + it->first.first + "-" + it->second.first).c_str());
 			if (ImGui::Button("Create Asset From Model And Texture"))
 				assets.ShowingAssetCreatorMenu = true;
 		}
@@ -128,6 +132,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		}
 		if (ImGui::Button("Instance Object"))
 		{
+			x = y = z = 0;
+			asset.first.first = asset.first.second = asset.second.first = asset.second.second = "";
 			std::memset(label, '\0', sizeof(label));
 			assets.ShowingInstanceObjectMenu = true;
 		}
@@ -136,10 +142,6 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			ImGui::OpenPopup("Instance Object Menu");
 			if (ImGui::BeginPopup("Instance Object Menu"))
 			{
-				static WO* wo;
-				static float x = 0;
-				static float y = 0;
-				static float z = 0;
 				ImVec2 popupSize = ImGui::GetWindowSize();
 				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
 				ImGui::SetWindowPos(centerPos);
@@ -153,10 +155,10 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				ImGui::NewLine();
 				ImGui::Text("Choose Object");
 				ImGui::NewLine();
-				for (std::set<WO*>::iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
+				for (std::set<ObjectandTexture>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
 				{
-					if (ImGui::Button((&(*it)->getLabel())->c_str()))
-						wo = *it;
+					if (ImGui::Button((it->first.first + "-" + it->second.first).c_str()))
+						asset = *it;
 					ImGui::NewLine();
 				}
 				ImGui::Text("Provide position");
@@ -169,15 +171,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				ImGui::NewLine();
 				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
 				{
-					if (label[0] != '\0' && wo->getLabel() != "")
+					if (label[0] != '\0' && asset.first.second != "" && asset.second.second != "")
 					{
-						assets.addObjectToWorld(label, wo, worldLst, Vector(x, y, z));
+						assets.instanceObject(label, asset, worldLst, Vector(x, y, z));
 						assets.ShowingInstanceObjectMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
-					else if (wo->getLabel() != "")
+					else if (asset.first.second != "" && asset.second.second != "")
 					{
-						assets.addObjectToWorld(wo->getLabel(), wo, worldLst, Vector(x, y, z));
+						assets.instanceObject(std::string(asset.first.first + "-" + asset.second.first), asset, worldLst, Vector(x, y, z));
 						assets.ShowingInstanceObjectMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
@@ -393,11 +395,16 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 
 void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture)
 {
-	WO* wo = WO::New((object.second), Vector(1, 1, 1));
+	texturedObjects.insert(make_pair(object, texture));
+}
+
+void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset, WorldContainer* worldLst, const Vector& position)
+{
+	WO* wo = WO::New((asset.first.second), Vector(1, 1, 1));
 	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-	wo->upon_async_model_loaded([wo, texture]()
+	wo->upon_async_model_loaded([wo, asset]()
 		{
-			ModelMeshSkin skin(ManagerTex::loadTexAsync(texture.second).value());
+			ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.second.second).value());
 			skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
 			skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
 			skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
@@ -405,14 +412,9 @@ void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, 
 			skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
 			wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
 		});
-	wo->setLabel(object.first + "-" + texture.first);
-	WorldObjects.insert(wo);
-}
-
-void AssetMenu::addObjectToWorld(const std::string& label, WO* wo, WorldContainer* worldLst, const Vector& position)
-{
-	wo->setPosition(position);
 	wo->setLabel(label);
+	wo->setPosition(position);
+	WorldObjects.push_back(wo);
 	worldLst->push_back(wo);
 }
 
