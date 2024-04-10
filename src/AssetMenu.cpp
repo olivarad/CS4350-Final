@@ -6,20 +6,30 @@
 #include "AftrImGuiIncludes.h"
 #include "AftrImgui_Markdown_Renderer.h"
 #include "WorldContainer.h"
+#include "NetMsg.h"
+#include "NetMessengerClient.h"
+#include "NetMsgImportObject.h"
+#include "NetMsgImportTexture.h"
+#include "NetMsgTextureModel.h"
+#include "NetMsgInstanceAsset.h"
+#include "NetMsgModifyPose.h"
 #include <list>
 #include <string>
+#include <memory>
 #include "AssetMenu.h"
+#include "GLViewNewModule.h"
+#include <fstream>
 using namespace Aftr;
 
 void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst)
 {
-	ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
+	//ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
 	static std::filesystem::path selected_path = "";
 	static AftrImGui_Markdown_Renderer md_render = Aftr::make_default_MarkdownRenderer();
 	static char playlistName[256] = {};
 	static char label[256] = {};
 	static std::string pathAsString = "";
-	static ObjectandTexture asset = std::make_pair(std::make_pair("", ""), std::make_pair("", ""));
+	static std::pair<ObjectandTexture, std::pair<int, int>> asset = std::make_pair(std::make_pair(std::make_pair("", ""), std::make_pair("", "")), std::make_pair(0, 0));
 	static float position[3];
 	ImGui::Begin("AssetMenu");
 	{
@@ -44,7 +54,16 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					int lastDotPos = pathAsString.rfind('.'); // Find the position of the last '.'
 					if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
 						label = pathAsString.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
-					assets.objectsPaths.insert(std::make_pair(label, pathAsString)); // store the object to be imported fully after texturing
+					std::pair<std::string, std::string> obj = std::make_pair(label, pathAsString);
+					assets.objectsPaths.insert(obj); // store the object to be imported fully after texturing
+					std::shared_ptr<NetMsgImportObject> msg = std::make_shared<NetMsgImportObject>();
+					msg->object = obj;
+					if (assets.client != nullptr)
+					{
+						assets.client->sendNetMsgSynchronousTCP(*msg);
+					}
+					else
+						assets.addNetMessage(msg);
 				}
 				else if (extension == "wav")
 					assets.importAudio(engine, pathAsString.c_str());
@@ -55,7 +74,14 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					int lastDotPos = pathAsString.rfind('.'); // Find the position of the last '.'
 					if (lastSlashPos != std::string::npos && lastDotPos != std::string::npos && lastSlashPos < lastDotPos)
 						label = pathAsString.substr(lastSlashPos + 1, lastDotPos - lastSlashPos - 1);
-					assets.texturePaths.insert(std::make_pair(label, pathAsString)); // Store texture to skin object at a later time
+					std::pair<std::string, std::string> tex = std::make_pair(label, pathAsString);
+					assets.texturePaths.insert(tex); // Store texture to skin object at a later time
+					std::shared_ptr<NetMsgImportTexture> msg = std::make_shared<NetMsgImportTexture>();
+					msg->texture = tex;
+					if (assets.client != nullptr)
+						assets.client->sendNetMsgSynchronousTCP(*msg);
+					else
+						assets.addNetMessage(msg);
 				}
 				else
 					std::cerr << "Invalid File Extension" << std::endl;
@@ -77,15 +103,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		{
 			if (ImGui::Button("Create Asset From Object And Texture"))
 				assets.ShowingAssetCreatorMenu = true;
-			for (std::set<ObjectandTexture>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
-				ImGui::Text(("    " + it->first.first + "-" + it->second.first).c_str());
+			for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
+				ImGui::Text(("    " + it->first.first.first + "-" + it->first.second.first).c_str());
 		}
 		if (ImGui::CollapsingHeader("Instanced Assets"))
 		{
 			if (ImGui::Button("Instance Asset"))
 			{
 				std::memset(position, 0, 3);
-				asset.first.first = asset.first.second = asset.second.first = asset.second.second = "";
+				asset.first.first.first = asset.first.first.second = asset.first.second.first = asset.first.second.second = "";
 				std::memset(label, '\0', sizeof(label));
 				assets.ShowingInstanceObjectMenu = true;
 			}
@@ -93,28 +119,61 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			ImGui::SameLine();
 			assets.selectedInstance == nullptr ? ImGui::Text("No Instance Selected") : ImGui::Text((assets.selectedInstance->getLabel()).c_str());
 			ImGui::Text("Modify Position");
-			ImGui::InputFloat3(" ", position);
+			if (ImGui::InputFloat3(" ", position))
+			{
+				if (assets.selectedInstance != nullptr)
+				{
+					assets.selectedInstance->setPosition(Vector(position[0], position[1], position[2]));
+					std::shared_ptr<NetMsgModifyPose> msg = std::make_shared<NetMsgModifyPose>();
+					msg->label = assets.selectedInstance->getLabel();
+					msg->position = assets.selectedInstance->getPosition();
+					msg->pose = assets.selectedInstance->getPose();
+					if (assets.client != nullptr)
+						assets.client->sendNetMsgSynchronousTCP(*msg);
+					else
+						assets.addNetMessage(msg);
+				}
+			}
 			ImGui::Text("Modify Rotation");
-			if (ImGui::Button("45 DEG") && assets.selectedInstance != nullptr)
-				assets.selectedInstance->rotateAboutGlobalZ(45 * DEGtoRAD);
-			ImGui::SameLine();
-			if (ImGui::Button("-45 DEG") && assets.selectedInstance != nullptr)
-				assets.selectedInstance->rotateAboutGlobalZ(-45 * DEGtoRAD);
+			{
+				if (ImGui::Button("45 DEG(Z)") && assets.selectedInstance != nullptr)
+				{
+					assets.selectedInstance->rotateAboutGlobalZ(45 * DEGtoRAD);
+					std::shared_ptr<NetMsgModifyPose> msg = std::make_shared<NetMsgModifyPose>();
+					msg->label = assets.selectedInstance->getLabel();
+					msg->position = assets.selectedInstance->getPosition();
+					msg->pose = assets.selectedInstance->getPose();
+					if (assets.client != nullptr)
+						assets.client->sendNetMsgSynchronousTCP(*msg);
+					else
+						assets.addNetMessage(msg);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("-45 DEG(Z)") && assets.selectedInstance != nullptr)
+				{
+					assets.selectedInstance->rotateAboutGlobalZ(-45 * DEGtoRAD);
+					std::shared_ptr<NetMsgModifyPose> msg = std::make_shared<NetMsgModifyPose>();
+					msg->label = assets.selectedInstance->getLabel();
+					msg->position = assets.selectedInstance->getPosition();
+					msg->pose = assets.selectedInstance->getPose();
+					if (assets.client != nullptr)
+						assets.client->sendNetMsgSynchronousTCP(*msg);
+					else
+						assets.addNetMessage(msg);
+				}
+			}
 			if (ImGui::Button("Clear Selection"))
 				assets.selectedInstance = nullptr;
-			if (assets.selectedInstance != nullptr)
-			{
-				assets.selectedInstance->setPosition(Vector(position[0], position[1], position[2]));
-			}
 			for (std::list<WO*>::const_iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
-				if (ImGui::Button(((*it)->getLabel()).c_str()))
-				{
-					assets.selectedInstance = *it;
-					Vector pos = (*it)->getPosition();
-					position[0] = pos[0];
-					position[1] = pos[1];
-					position[2] = pos[2];
-				}
+				if ((*it)->getLabel() != "PREVIEW")
+					if (ImGui::Button(((*it)->getLabel()).c_str()))
+					{
+						assets.selectedInstance = *it;
+						Vector pos = (*it)->getPosition();
+						position[0] = pos[0];
+						position[1] = pos[1];
+						position[2] = pos[2];
+					}
 		}
 		if (assets.ShowingAssetCreatorMenu)
 		{
@@ -124,7 +183,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				static std::pair<std::string, std::string> selectedModel = std::make_pair("", "");
 				static std::pair<std::string, std::string> selectedTexture = std::make_pair("", "");
 				ImVec2 popupSize = ImGui::GetWindowSize();
-				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.25f);
+				ImVec2 centerPos = ImVec2((ImGui::GetIO().DisplaySize.x - popupSize.x) * 0.5f, (ImGui::GetIO().DisplaySize.y - popupSize.y) * 0.85f);
 				ImGui::SetWindowPos(centerPos);
 				ImGui::Text("Asset Creator");
 				ImGui::Spacing();
@@ -137,7 +196,10 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					ImGui::SameLine();
 					if (ImGui::Button((it->first).c_str()))
+					{
 						selectedModel = *it;
+						assets.cancelPreview(worldLst);
+					}
 				}
 				ImGui::NewLine();
 				ImGui::Text("Select Texture");
@@ -147,30 +209,72 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					ImGui::SameLine();
 					if (ImGui::Button((it->first).c_str()))
-						selectedTexture = *it;
-				}
-
-				ImGui::Text("Selected (Model, Texture) Pair");
-				ImGui::SameLine();
-				ImGui::Text((" (" + selectedModel.first + ", " + selectedTexture.first + ")").c_str());
-				ImGui::NewLine();
-				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
-				{
-					if (selectedModel.first != "" && selectedTexture.first != "")
 					{
-						assets.textureModel(selectedModel, selectedTexture);
+						selectedTexture = *it;
+						assets.cancelPreview(worldLst);
+					}
+				}
+				if (selectedModel.first != "" && selectedTexture.first != "")
+				{
+					assets.previewAsset(std::make_pair(selectedModel, selectedTexture), worldLst);
+					ImGui::Text("Modify Default X and Y Rotation");
+					if (ImGui::Button("45 DEG(X)"))
+					{
+						assets.previewInstance->rotateAboutGlobalX(45 * DEGtoRAD);
+						assets.previewXYRotation = std::make_pair(assets.previewXYRotation.first + 45, assets.previewXYRotation.second);
+					}
+					ImGui::SameLine();
+					if (ImGui::Button("-45 DEG(X)"))
+					{
+						assets.previewInstance->rotateAboutGlobalX(-45 * DEGtoRAD);
+						assets.previewXYRotation = std::make_pair(assets.previewXYRotation.first - 45, assets.previewXYRotation.second);
+					}
+					if (ImGui::Button("45 DEG(Y)"))
+					{
+						assets.previewInstance->rotateAboutGlobalY(45 * DEGtoRAD);
+						assets.previewXYRotation = std::make_pair(assets.previewXYRotation.first, assets.previewXYRotation.second + 45);
+					}
+					ImGui::SameLine();
+					if (ImGui::Button("-45 DEG(Y)"))
+					{
+						assets.previewInstance->rotateAboutGlobalY(-45 * DEGtoRAD);
+						assets.previewXYRotation = std::make_pair(assets.previewXYRotation.first, assets.previewXYRotation.second - 45);
+					}
+					if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
+					{
+						assets.textureModel(selectedModel, selectedTexture, assets.previewXYRotation);
+
+						std::shared_ptr<NetMsgTextureModel> msg = std::make_shared<NetMsgTextureModel>();
+						msg->object = selectedModel;
+						msg->texture = selectedTexture;
+						msg->defaultRotation = assets.previewXYRotation;
+						if (assets.client != nullptr)
+							assets.client->sendNetMsgSynchronousTCP(*msg);
+						else
+							assets.addNetMessage(msg);
+						assets.cancelPreview(worldLst);
+						selectedModel = selectedTexture = std::make_pair("", "");
 						assets.ShowingAssetCreatorMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
-					else
-						std::cout << "Assets requires a model and a texture" << std::endl;
+					ImGui::SameLine();
+					if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+					{
+						assets.cancelPreview(worldLst);
+						selectedModel = selectedTexture = std::make_pair("", "");
+						assets.ShowingAssetCreatorMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
 				}
-				ImGui::SameLine();
-				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
-				{
-					assets.ShowingAssetCreatorMenu = false;
-					ImGui::CloseCurrentPopup();
-				}
+				else
+					if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+					{
+						assets.cancelPreview(worldLst);
+						selectedModel = selectedTexture = std::make_pair("", "");
+						assets.ShowingAssetCreatorMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
+
 				ImGui::EndPopup();
 			}
 		}
@@ -192,34 +296,66 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				ImGui::NewLine();
 				ImGui::Text("Choose Object");
 				ImGui::NewLine();
-				for (std::set<ObjectandTexture>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
+				for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
 				{
-					if (ImGui::Button((it->first.first + "-" + it->second.first).c_str()))
-						asset = *it;
+					if (ImGui::Button((it->first.first.first + "-" + it->first.second.first).c_str()))
+					{
+						asset.first = (*it).first;
+						asset.second = (*it).second;
+					}
 					ImGui::NewLine();
 				}
 				ImGui::Text("Provide position");
 				ImGui::InputFloat3(" ", position);
-				if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
+				if (asset.first.second.second != "")
 				{
-					if (label[0] != '\0' && asset.first.second != "" && asset.second.second != "")
+					if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
 					{
-						assets.instanceObject(label, asset, worldLst, Vector(position[0], position[1], position[2]));
-						assets.ShowingInstanceObjectMenu = false;
-						ImGui::CloseCurrentPopup();
+						if (label[0] != '\0' && asset.first.first.second != "")
+						{
+							assets.instanceObject(label, asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
+							std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+							msg->label = label;
+							msg->asset = asset.first;
+							msg->defaultRotation = asset.second;
+							msg->position = position;
+							if (assets.client != nullptr)
+								assets.client->sendNetMsgSynchronousTCP(*msg);
+							else
+								assets.addNetMessage(msg);
+							assets.ShowingInstanceObjectMenu = false;
+							ImGui::CloseCurrentPopup();
+						}
+						else if (asset.first.first.second != "")
+						{
+							assets.instanceObject(std::string(asset.first.first.first + "-" + asset.first.second.first), asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
+							std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+							msg->label = std::string(asset.first.first.first + "-" + asset.first.second.first);
+							msg->asset = asset.first;
+							msg->defaultRotation = asset.second;
+							msg->position = position;
+							if (assets.client != nullptr)
+								assets.client->sendNetMsgSynchronousTCP(*msg);
+							else
+								assets.addNetMessage(msg);
+							assets.ShowingInstanceObjectMenu = false;
+							ImGui::CloseCurrentPopup();
+						}
 					}
-					else if (asset.first.second != "" && asset.second.second != "")
+					ImGui::SameLine();
+					if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
 					{
-						assets.instanceObject(std::string(asset.first.first + "-" + asset.second.first), asset, worldLst, Vector(position[0], position[1], position[2]));
 						assets.ShowingInstanceObjectMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
 				}
-				ImGui::SameLine();
-				if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+				else
 				{
-					assets.ShowingInstanceObjectMenu = false;
-					ImGui::CloseCurrentPopup();
+					if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+					{
+						assets.ShowingInstanceObjectMenu = false;
+						ImGui::CloseCurrentPopup();
+					}
 				}
 				ImGui::EndPopup();
 			}
@@ -428,12 +564,12 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 
 }
 
-void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture)
+void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, std::pair<int, int> defaultXYRotation)
 {
-	texturedObjects.insert(make_pair(object, texture));
+	texturedObjects.insert(make_pair(make_pair(object, texture), defaultXYRotation));
 }
 
-void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset, WorldContainer* worldLst, const Vector& position)
+void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position)
 {
 	WO* wo = WO::New((asset.first.second), Vector(1, 1, 1));
 	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
@@ -449,6 +585,8 @@ void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset,
 		});
 	wo->setLabel(label);
 	wo->setPosition(position);
+	wo->rotateAboutGlobalX(defaultXYRotation.first * DEGtoRAD);
+	wo->rotateAboutGlobalY(defaultXYRotation.second * DEGtoRAD);
 	WorldObjects.push_back(wo);
 	worldLst->push_back(wo);
 }
@@ -469,4 +607,95 @@ void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFil
 			return;
 	}
 	AudioSources.insert(std::make_pair(name, engine->addSoundSourceFromFile(soundFileName)));
+}
+
+void AssetMenu::modifyPose(const std::string& label, const Vector& position, const Mat4& pose)
+{
+	for (std::list<WO*>::iterator it = WorldObjects.begin(); it != WorldObjects.end(); ++it)
+	{
+		if (*(&(*it)->getLabel()) == label)
+		{
+			(*it)->setPosition(position);
+			(*it)->setDisplayMatrix(pose);
+			return;
+		}
+	}
+}
+
+void AssetMenu::pushAllMessages()
+{
+	if (client != nullptr)
+	{
+		if (netMessages.empty())
+			return;
+		for (std::list<std::shared_ptr<NetMsg>>::const_iterator it = netMessages.begin(); it != netMessages.end(); ++it)
+		{
+			(*it)->NetMsg::toString();
+			client->sendNetMsgSynchronousTCP(**it);
+		}
+		netMessages.erase(netMessages.begin(), netMessages.end());
+	}
+}
+
+void AssetMenu::previewAsset(ObjectandTexture asset, WorldContainer* worldLst)
+{
+	for (int i = 0; i < worldLst->size(); ++i)
+	{
+		if (worldLst->at(i)->getLabel() == "PREVIEW")
+		{
+			return;
+		}
+	}
+	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
+	Camera* cam = glView->getCamera();
+	auto position = cam->getPosition() + cam->getLookDirection() * 5;
+
+	WO* wo = WO::New((asset.first.second), Vector(1, 1, 1));
+	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+	wo->upon_async_model_loaded([wo, asset]()
+		{
+			ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.second.second).value());
+			skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
+			skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
+			skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
+			skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
+			skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
+			wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
+		});
+	wo->setLabel("PREVIEW");
+	wo->setPosition(position);
+	previewInstance = wo;
+	worldLst->push_back(previewInstance);
+}
+
+void AssetMenu::cancelPreview(WorldContainer* worldLst)
+{
+	if (previewInstance != nullptr)
+	{
+		previewXYRotation = std::make_pair(0, 0);
+		worldLst->eraseViaWOptr(previewInstance);
+		previewInstance = nullptr;
+	}
+}
+
+void AssetMenu::saveStitchedAssets()
+{
+	std::fstream outfile;
+	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "stitchedAssets.dat", std::ios::out);
+	size_t count = texturedObjects.size(); // Get the total number of elements
+	size_t current = 0; // Track the current element index
+
+	for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::const_iterator it = texturedObjects.begin(); it != texturedObjects.end(); ++it)
+	{
+		outfile << it->first.first.first << std::endl; // object label
+		outfile << it->first.first.second << std::endl; // object path
+		outfile << it->first.second.first << std::endl; // texture label
+		outfile << it->first.second.second << std::endl; // texture path
+		outfile << it->second.first << std::endl; // default global X axis rotation
+		outfile << it->second.second; // default global Y axis rotation
+
+		if (++current < count) // Check if it's not the last element
+			outfile << std::endl; // Add newline only if it's not the last element
+	}
+	outfile.close();
 }

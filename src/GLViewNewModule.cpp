@@ -38,6 +38,11 @@
 
 //Custom
 #include "AssetMenu.h"
+#include "NetMsgImportObject.h"
+#include "NetMsgImportTexture.h"
+#include "NetMsgTextureModel.h"
+#include "NetMsgInstanceAsset.h"
+#include "NetMsgModifyPose.h"
 using namespace Aftr;
 
 GLViewNewModule* GLViewNewModule::New(const std::vector< std::string >& args)
@@ -86,6 +91,7 @@ void GLViewNewModule::onCreate()
 
 GLViewNewModule::~GLViewNewModule()
 {
+	assets.saveStitchedAssets();
 	//Implicitly calls GLView::~GLView()
 }
 
@@ -206,6 +212,11 @@ void GLViewNewModule::onKeyDown(const SDL_KeyboardEvent& key)
 		std::cout << "Engine Camera Position: " << this->cam->getPosition() << std::endl;
 		std::cout << "IrrKlang Converted Camera Position: " << convertIrrklangvec3dfToString(convertAftrVecToIrrklang(this->cam->getPosition())) << std::endl;
 	}
+	if (key.keysym.sym == SDLK_9)
+	{
+		assets.client = NetMessengerClient::New("127.0.0.1", ManagerEnvironmentConfiguration::getVariableValue("NetServerTransmitPort"));
+		assets.pushAllMessages();
+	}
 }
 
 void GLViewNewModule::onKeyUp(const SDL_KeyboardEvent& key)
@@ -239,14 +250,20 @@ void GLViewNewModule::onKeyUp(const SDL_KeyboardEvent& key)
 
 void Aftr::GLViewNewModule::loadMap()
 {
+
+	GLView::subscribe_NetMsg_to_callback<NetMsgImportObject>([this](auto msg) {msg->onMessageArrived(); });
+	GLView::subscribe_NetMsg_to_callback<NetMsgImportTexture>([this](auto msg) {msg->onMessageArrived(); });
+	GLView::subscribe_NetMsg_to_callback<NetMsgTextureModel>([this](auto msg) {msg->onMessageArrived(); });
+	GLView::subscribe_NetMsg_to_callback<NetMsgInstanceAsset>([this](auto msg) {msg->onMessageArrived(); });
+	GLView::subscribe_NetMsg_to_callback<NetMsgModifyPose>([this](auto msg) {msg->onMessageArrived(); });
+
 	this->worldLst = new WorldList(); //WorldList is a 'smart' vector that is used to store WO*'s
+	std::cout << "WorldLst: " << worldLst << std::endl;
 	this->actorLst = new WorldList();
 	this->netLst = new WorldList();
 
 	engine = irrklang::createIrrKlangDevice();
 	engine->setSoundVolume(1.0);
-	//assets.importAudio(engine, (ManagerEnvironmentConfiguration::getLMM() + "/sounds/Wizards_Tower.wav").c_str());
-
 	ManagerOpenGLState::GL_CLIPPING_PLANE = 1000.0;
 	ManagerOpenGLState::GL_NEAR_PLANE = 0.1f;
 	ManagerOpenGLState::enableFrustumCulling = false;
@@ -255,10 +272,7 @@ void Aftr::GLViewNewModule::loadMap()
 
 	this->cam->setPosition(15, 15, 10);
 
-	std::string shinyRedPlasticCube(ManagerEnvironmentConfiguration::getSMM() + "/models/cube4x4x4redShinyPlastic_pp.wrl");
-	std::string wheeledCar(ManagerEnvironmentConfiguration::getSMM() + "/models/rcx_treads.wrl");
 	std::string grass(ManagerEnvironmentConfiguration::getSMM() + "/models/grassFloor400x400_pp.wrl");
-	std::string human(ManagerEnvironmentConfiguration::getSMM() + "/models/human_chest.wrl");
 
 	//SkyBox Textures readily available
 	skyBoxImageNames.push_back(ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_water+6.jpg");

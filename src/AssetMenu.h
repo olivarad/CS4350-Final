@@ -8,6 +8,9 @@
 #include "AftrImGuiIncludes.h"
 #include "AftrImgui_Markdown_Renderer.h"
 #include "WorldContainer.h"
+#include "NetMsg.h"
+#include "NetMessengerClient.h"
+#include "NetMsgImportObject.h"
 #include <list>
 #include <string>
 using namespace Aftr;
@@ -26,19 +29,29 @@ public:
 
 	// Asset Import/Build Functions
 
+	void importObjectPath(const std::pair<std::string, std::string>& object) { this->objectsPaths.insert(object); }
+	void importTexturePath(const std::pair<std::string, std::string>& texture) { this->texturePaths.insert(texture); }
+	void modifyPose(const std::string& label, const Vector& position, const Mat4& pose);
 	// Import model to be used as a WO
-	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture);
+	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, std::pair<int, int> defaultXYRotation);
 	// Push an object to the rendering worldLst and potentially label it
-	void instanceObject(const std::string& label, ObjectandTexture asset, WorldContainer* worldLst, const Vector& position);
+	void instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position);
 	// Import Audio to be used for 2D and 3D audio
 	void importAudio(irrklang::ISoundEngine* engine, const char* soundFileName);
 	// Creates a full asset with one audio source, more can be added later
 	void makeFullAsset(WO* wo, Audio* audio) { FullAssets.push_back(std::make_pair(wo, std::list<Audio*> {audio})); }
 	// Add audio to a full asset
 	void addAudio(FullAsset& fullAsset, Audio* audio) { fullAsset.second.push_back(audio); }
+	void addNetMessage(std::shared_ptr<NetMsg> msg) { netMessages.push_back(msg); }
+	void pushAllMessages();
+	void previewAsset(ObjectandTexture asset, WorldContainer* worldLst);
+	void cancelPreview(WorldContainer* worldLst);
+	void saveStitchedAssets();
 
+	NetMessengerClient* client = nullptr;
 
 protected:
+	std::list<std::shared_ptr<NetMsg>> netMessages;
 	std::string currentPlaylist = "";
 	irrklang::ISoundSource* currentPlaylistAudio = nullptr;
 	bool ShowingPlaylistCreatorMenu = false;
@@ -47,8 +60,10 @@ protected:
 	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
-	std::set<ObjectandTexture> texturedObjects;
+	std::set<std::pair<ObjectandTexture, std::pair<int, int>>> texturedObjects;
 	WO* selectedInstance = nullptr;
+	WO* previewInstance = nullptr;
+	std::pair<int, int> previewXYRotation = std::make_pair(0, 0);
 	std::list<WO*> WorldObjects;
 	std::set<Audio> AudioSources;
 	std::list<PlayList> PlayLists;

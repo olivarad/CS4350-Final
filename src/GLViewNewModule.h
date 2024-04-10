@@ -21,7 +21,7 @@ namespace Aftr
 		\{
 	*/
 
-	class GLViewNewModule : public GLView
+	class GLViewNewModule : public GLView , protected AssetMenu , public NetMsgImportObject
 	{
 	public:
 		static GLViewNewModule* New(const std::vector< std::string >& outArgs);
@@ -38,17 +38,29 @@ namespace Aftr
 		virtual void moveCamera();
 		irrklang::vec3df convertAftrVecToIrrklang(Vector vec) { return irrklang::vec3df(vec.x, vec.y, vec.z); } // Convert from Aftr vector of 3 floats to irrklang::vec3df
 		std::string convertIrrklangvec3dfToString(irrklang::vec3df vec) { return  std::to_string(vec.X) + ", " + std::to_string(vec.Y) + ", " + std::to_string(vec.Z); }
+		/*
+		void importNetMsgObject(const std::pair<std::string, std::string>& object) { objectsPaths.insert(object); }
+		void importNetMsgTexture(const std::pair<std::string, std::string>& texture) { texturePaths.insert(texture); }
+		void textureModelNetMsg(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture) { textureModel(object, texture); }
+		void instanceObjectNetMsg(const std::string& label, ObjectandTexture asset, const Vector& position) { instanceObject(label, asset, worldLst, position); }
+		void modifyPoseNetMsg(WO* wo, const Mat4& pose) { wo->setPose(pose); }
+		*/
+
+		AssetMenu assets;
+
 	protected:
 		GLViewNewModule(const std::vector< std::string >& args);
 		virtual void onCreate();
+
 		std::vector< std::string > skyBoxImageNames; //vector to store texture paths
 		int currentSky = 0;
 		std::vector<WO*> skyptrs;
+
 		bool moveInputStates[6]; // wasdz"space", 1 is pressed and 0 is not pressed LCTRL is down space is up
 
 		irrklang::ISoundEngine* engine;
 
-		AssetMenu assets;
+		std::pair<std::string, std::string> currentObject; // Label, Path
 	};
 
 	/** \} */
