@@ -23,6 +23,8 @@ typedef std::pair<std::pair<std::string, std::string>, std::pair<std::string, st
 class AssetMenu
 {
 public:
+	AssetMenu() { loadAssets(); }
+
 	// GUI Functions
 
 	static void AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst);
@@ -47,17 +49,18 @@ public:
 	void previewAsset(ObjectandTexture asset, WorldContainer* worldLst);
 	void cancelPreview(WorldContainer* worldLst);
 	void saveStitchedAssets();
+	void loadAssets();
 
 	NetMessengerClient* client = nullptr;
 
 protected:
 	std::list<std::shared_ptr<NetMsg>> netMessages;
 	std::string currentPlaylist = "";
+	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
 	irrklang::ISoundSource* currentPlaylistAudio = nullptr;
 	bool ShowingPlaylistCreatorMenu = false;
 	bool ShowingAssetCreatorMenu = false;
 	bool ShowingInstanceObjectMenu = false;
-	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
 	std::set<std::pair<ObjectandTexture, std::pair<int, int>>> texturedObjects;

@@ -19,6 +19,7 @@
 #include "AssetMenu.h"
 #include "GLViewNewModule.h"
 #include <fstream>
+#include <array>
 using namespace Aftr;
 
 void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst)
@@ -698,4 +699,18 @@ void AssetMenu::saveStitchedAssets()
 			outfile << std::endl; // Add newline only if it's not the last element
 	}
 	outfile.close();
+}
+
+void AssetMenu::loadAssets()
+{
+	std::fstream infile;
+	infile.open(ManagerEnvironmentConfiguration::getLMM() + "stitchedAssets.dat", std::ios::in);
+	std::string fromFile;
+	std::array<std::string, 6> stitchedAssetContents;
+	while (!infile.eof())
+	{
+		for (int i = 0; i < 6; ++i)
+			std::getline(infile, stitchedAssetContents[i]);
+		textureModel(std::make_pair(stitchedAssetContents[0], stitchedAssetContents[1]), std::make_pair(stitchedAssetContents[2], stitchedAssetContents[3]), std::make_pair(std::stoi(stitchedAssetContents[4]), std::stoi(stitchedAssetContents[5])));
+	}
 }
