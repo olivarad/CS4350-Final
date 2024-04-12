@@ -17,6 +17,7 @@ NetMsgTextureModel::NetMsgTextureModel()
 {
 	this->object;
 	this->texture;
+	this->category;
 	this->defaultRotation;
 }
 
@@ -31,6 +32,7 @@ bool NetMsgTextureModel::toStream(NetMessengerStreamBuffer& os) const
 	os << this->object.second;
 	os << this->texture.first;
 	os << this->texture.second;
+	os << this->category;
 	os << this->defaultRotation.first;
 	os << this->defaultRotation.second;
 
@@ -43,6 +45,7 @@ bool NetMsgTextureModel::fromStream(NetMessengerStreamBuffer& is)
 	is >> this->object.second;
 	is >> this->texture.first;
 	is >> this->texture.second;
+	is >> this->category;
 	is >> this->defaultRotation.first;
 	is >> this->defaultRotation.second;
 
@@ -52,10 +55,10 @@ bool NetMsgTextureModel::fromStream(NetMessengerStreamBuffer& is)
 // Use Data
 void NetMsgTextureModel::onMessageArrived()
 {
-	std::cout << "Message Arrived" << std::endl;
-	std::cout << this->toString();
+	//std::cout << "Message Arrived" << std::endl;
+	//std::cout << this->toString();
 	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
-	glView->assets.textureModel(object, texture, defaultRotation);
+	glView->assets.textureModel(object, texture, category, defaultRotation);
 }
 
 // Print information to terminal

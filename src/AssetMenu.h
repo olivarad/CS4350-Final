@@ -34,8 +34,9 @@ public:
 	void importObjectPath(const std::pair<std::string, std::string>& object) { this->objectsPaths.insert(object); }
 	void importTexturePath(const std::pair<std::string, std::string>& texture) { this->texturePaths.insert(texture); }
 	void modifyPose(const std::string& label, const Vector& position, const Mat4& pose);
+	bool categoryMatcher = [&](const std::pair<std::string, std::list<std::pair<ObjectandTexture, std::pair<int, int>>>>& item) { return item.first == category; }
 	// Import model to be used as a WO
-	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, std::pair<int, int> defaultXYRotation);
+	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char& category[256], const std::pair<int, int>& defaultXYRotation);
 	// Push an object to the rendering worldLst and potentially label it
 	void instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position);
 	// Import Audio to be used for 2D and 3D audio
@@ -64,6 +65,7 @@ protected:
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
 	std::set<std::pair<ObjectandTexture, std::pair<int, int>>> texturedObjects;
+	std::set<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects; // List of categories and pointers to textured objects in that category
 	WO* selectedInstance = nullptr;
 	WO* previewInstance = nullptr;
 	std::pair<int, int> previewXYRotation = std::make_pair(0, 0);

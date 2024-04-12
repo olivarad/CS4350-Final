@@ -21,6 +21,7 @@ namespace Aftr
 		// Payload
 		std::pair<std::string, std::string> object; // Label and Path, assumes texture files have the same absolute path
 		std::pair<std::string, std::string> texture; // Label and Path, assumes texture files have the same absolute path
+		char category[256];
 		std::pair<int, int> defaultRotation;
 
 	protected:

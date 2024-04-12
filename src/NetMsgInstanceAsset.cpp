@@ -63,8 +63,8 @@ bool NetMsgInstanceAsset::fromStream(NetMessengerStreamBuffer& is)
 // Use Data
 void NetMsgInstanceAsset::onMessageArrived()
 {
-	std::cout << "Message Arrived" << std::endl;
-	std::cout << this->toString();
+	//std::cout << "Message Arrived" << std::endl;
+	//std::cout << this->toString();
 	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
 	glView->assets.instanceObject(label, asset, defaultRotation, glView->getWorldContainer(), position);
 }
