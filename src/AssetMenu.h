@@ -41,15 +41,13 @@ public:
 	void instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position);
 	// Import Audio to be used for 2D and 3D audio
 	void importAudio(irrklang::ISoundEngine* engine, const char* soundFileName);
-	// Creates a full asset with one audio source, more can be added later
-	void makeFullAsset(WO* wo, Audio* audio) { FullAssets.push_back(std::make_pair(wo, std::list<Audio*> {audio})); }
 	// Add audio to a full asset
 	void addAudio(FullAsset& fullAsset, Audio* audio) { fullAsset.second.push_back(audio); }
 	void addNetMessage(std::shared_ptr<NetMsg> msg) { netMessages.push_back(msg); }
 	void pushAllMessages();
 	void previewAsset(ObjectandTexture asset, WorldContainer* worldLst);
 	void cancelPreview(WorldContainer* worldLst);
-	void saveStitchedAssets();
+	void saveAssets();
 	void loadAssets();
 
 	NetMessengerClient* client = nullptr;
@@ -64,7 +62,6 @@ protected:
 	bool ShowingInstanceObjectMenu = false;
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
-	std::set<std::pair<ObjectandTexture, std::pair<int, int>>> texturedObjects;
 	std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects; // List of categories and pointers to textured objects in that category
 	WO* selectedInstance = nullptr;
 	WO* previewInstance = nullptr;
@@ -72,7 +69,6 @@ protected:
 	std::list<WO*> WorldObjects;
 	std::set<Audio> AudioSources;
 	std::list<PlayList> PlayLists;
-	std::list<FullAsset> FullAssets;
 	std::list<Audio> selectedAudio;
 	float masterVolume = 1.0;
 };

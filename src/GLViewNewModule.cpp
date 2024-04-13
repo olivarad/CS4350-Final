@@ -91,7 +91,7 @@ void GLViewNewModule::onCreate()
 
 GLViewNewModule::~GLViewNewModule()
 {
-	assets.saveStitchedAssets();
+	assets.saveAssets();
 	//Implicitly calls GLView::~GLView()
 }
 

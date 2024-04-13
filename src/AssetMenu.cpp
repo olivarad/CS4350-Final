@@ -716,9 +716,45 @@ void AssetMenu::cancelPreview(WorldContainer* worldLst)
 	}
 }
 
-void AssetMenu::saveStitchedAssets()
+void AssetMenu::saveAssets()
 {
 	std::fstream outfile;
+
+	// object files
+	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "objects.dat", std::ios::out);
+	for (std::set<std::pair<std::string, std::string>>::const_iterator it = objectPaths.begin(); it != objectPaths.end(); ++it)
+	{
+		if (it == objectPaths.end())
+		{
+			outfile << it->first << std::endl;
+			outfile << it->second;
+		}
+		else
+		{
+			outfile << it->first << std::endl;
+			outfile << it->second << std::endl;
+		}
+	}
+	outfile.close();
+
+	// texture files
+	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "textures.dat", std::ios::out);
+	for (std::set<std::pair<std::string, std::string>>::const_iterator it = texturePaths.begin(); it != texturePaths.end(); ++it)
+	{
+		if (it == texturePaths.end())
+		{
+			outfile << it->first << std::endl;
+			outfile << it->second;
+		}
+		else
+		{
+			outfile << it->first << std::endl;
+			outfile << it->second << std::endl;
+		}
+	}
+	outfile.close();
+
+	// stitched assets
 	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "stitchedAssets.dat", std::ios::out);
 	size_t count = categorizedTexturedObjects.size(); // Get the total number of elements
 	size_t current = 0;					   // Track the current element index
@@ -745,6 +781,38 @@ void AssetMenu::saveStitchedAssets()
 void AssetMenu::loadAssets()
 {
 	std::fstream infile;
+
+	// object files
+	infile.open(ManagerEnvironmentConfiguration::getLMM() + "objects.dat", std::ios::out);
+	std::array<std::string, 2> objectFileContents;
+	while (!infile.eof())
+	{
+		for (int i = 0; i < 2; ++i)
+		{
+			if (infile.eof())
+			return;
+			std::getline(infile, objectFileContents[i]);
+		}
+		importObjectPath(std::make_pair(objectFileContents[0], objectFileContents[1]));
+	}
+	infile.close();
+
+	// texture files
+	infile.open(ManagerEnvironmentConfiguration::getLMM() + "textures.dat", std::ios::out);
+	std::array<std::string, 2> textureFileContents;
+	while (!infile.eof())
+	{
+		for (int i = 0; i < 2; ++i)
+		{
+			if (infile.eof())
+			return;
+			std::getline(infile, textureFileContents[i]);
+		}
+		importObjectPath(std::make_pair(textureFileContents[0], textureFileContents[1]));
+	}
+	infile.close();
+
+	// stitched assets
 	infile.open(ManagerEnvironmentConfiguration::getLMM() + "stitchedAssets.dat", std::ios::in);
 	std::string fromFile;
 	std::array<std::string, 7> stitchedAssetContents;
