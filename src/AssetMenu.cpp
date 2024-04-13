@@ -23,7 +23,7 @@
 #include <algorithm>
 using namespace Aftr;
 
-void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEngine *engine, WorldContainer *worldLst)
+void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst)
 {
 	// ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
 	static std::filesystem::path selected_path = "";
@@ -105,8 +105,18 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 		{
 			if (ImGui::Button("Create Asset From Object And Texture"))
 				assets.ShowingAssetCreatorMenu = true;
-			for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
-				ImGui::Text(("    " + it->first.first.first + "-" + it->first.second.first).c_str());
+			if (!assets.categorizedTexturedObjects.empty())
+			{
+				ImGui::Text(("    Category:"));
+				for (std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>::const_iterator it = assets.categorizedTexturedObjects.begin(); it != assets.categorizedTexturedObjects.end(); ++it)
+				{
+					ImGui::Text(("      " + it->first + ":").c_str());
+					for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::const_iterator items = it->second.begin(); items != it->second.end(); ++items)
+					{
+						ImGui::Text(("        " + items->first.first.first + "-" + items->first.second.first).c_str());
+					}
+				}
+			}
 		}
 		if (ImGui::CollapsingHeader("Instanced Assets"))
 		{
@@ -166,7 +176,7 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 			}
 			if (ImGui::Button("Clear Selection"))
 				assets.selectedInstance = nullptr;
-			for (std::list<WO *>::const_iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
+			for (std::list<WO*>::const_iterator it = assets.WorldObjects.begin(); it != assets.WorldObjects.end(); ++it)
 				if ((*it)->getLabel() != "PREVIEW")
 					if (ImGui::Button(((*it)->getLabel()).c_str()))
 					{
@@ -252,7 +262,7 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 						std::shared_ptr<NetMsgTextureModel> msg = std::make_shared<NetMsgTextureModel>();
 						msg->object = selectedModel;
 						msg->texture = selectedTexture;
-						msg->category = category;
+						strncpy(msg->category, category, sizeof(msg->category));
 						msg->defaultRotation = assets.previewXYRotation;
 						if (assets.client != nullptr)
 							assets.client->sendNetMsgSynchronousTCP(*msg);
@@ -260,7 +270,7 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 							assets.addNetMessage(msg);
 						assets.cancelPreview(worldLst);
 						selectedModel = selectedTexture = std::make_pair("", "");
-						std::memset(category, '', sizeof(category));
+						std::memset(category, '\0', sizeof(category));
 						assets.ShowingAssetCreatorMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
@@ -269,7 +279,7 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 					{
 						assets.cancelPreview(worldLst);
 						selectedModel = selectedTexture = std::make_pair("", "");
-						std::memset(category, '', sizeof(category));
+						std::memset(category, '\0', sizeof(category));
 						assets.ShowingAssetCreatorMenu = false;
 						ImGui::CloseCurrentPopup();
 					}
@@ -278,7 +288,7 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 				{
 					assets.cancelPreview(worldLst);
 					selectedModel = selectedTexture = std::make_pair("", "");
-					std::memset(category, '', sizeof(category));
+					std::memset(category, '\0', sizeof(category));
 					assets.ShowingAssetCreatorMenu = false;
 					ImGui::CloseCurrentPopup();
 				}
@@ -304,14 +314,21 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 				ImGui::NewLine();
 				ImGui::Text("Choose Object");
 				ImGui::NewLine();
-				for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::iterator it = assets.texturedObjects.begin(); it != assets.texturedObjects.end(); ++it)
+				if (!assets.categorizedTexturedObjects.empty())
 				{
-					if (ImGui::Button((it->first.first.first + "-" + it->first.second.first).c_str()))
+					ImGui::Text(("    Category:"));
+					for (std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>::const_iterator it = assets.categorizedTexturedObjects.begin(); it != assets.categorizedTexturedObjects.end(); ++it)
 					{
-						asset.first = (*it).first;
-						asset.second = (*it).second;
+						ImGui::Text(("      " + it->first + ":").c_str());
+						for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::const_iterator items = it->second.begin(); items != it->second.end(); ++items)
+						{
+							if (ImGui::Button(("        " + items->first.first.first + "-" + items->first.second.first).c_str()))
+							{
+								asset.first = items->first;
+								asset.second = items->second;
+							}
+						}
 					}
-					ImGui::NewLine();
 				}
 				ImGui::Text("Provide position");
 				ImGui::InputFloat3(" ", position);
@@ -439,7 +456,7 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 						static std::set<std::string> usedPlaylistNames;
 						if (usedPlaylistNames.find(playlistName) == usedPlaylistNames.end())
 						{
-							assets.PlayLists.push_back({playlistName, assets.selectedAudio});
+							assets.PlayLists.push_back({ playlistName, assets.selectedAudio });
 							assets.selectedAudio.clear();
 							assets.ShowingPlaylistCreatorMenu = false;
 							ImGui::CloseCurrentPopup();
@@ -570,11 +587,14 @@ void AssetMenu::AssetMenuGUI(WOImGui *gui, AssetMenu &assets, irrklang::ISoundEn
 	ImGui::End();
 }
 
-void AssetMenu::textureModel(const std::pair<std::string, std::string> &object, const std::pair<std::string, std::string> &texture, const char &category[256], const std::pair<int, int> &defaultXYRotation)
+void AssetMenu::textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char(&category)[256], const std::pair<int, int>& defaultXYRotation)
 {
-	// std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects; // List of categories and pointers to textured objects in that category
-	std::set<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>::iterator it;
-	it = find_if(categorizedTexturedObjects.begin(), categorizedTexturedObjects.end(), categoryMatcher);
+	std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>::iterator it;
+	for (it = categorizedTexturedObjects.begin(); it != categorizedTexturedObjects.end(); ++it)
+	{
+		if (it->first == category)
+			break;
+	}
 	if (it != categorizedTexturedObjects.end())
 	{
 		it->second.insert(make_pair(make_pair(object, texture), defaultXYRotation));
@@ -584,17 +604,17 @@ void AssetMenu::textureModel(const std::pair<std::string, std::string> &object, 
 	{
 		std::set<std::pair<ObjectandTexture, std::pair<int, int>>> addedCategorySet;
 		addedCategorySet.insert(make_pair(make_pair(object, texture), defaultXYRotation));
-		categorizedTexturedObjects.insert(make_pair(category, addedCategorySet));
+		categorizedTexturedObjects.push_back(make_pair(category, addedCategorySet));
 		return;
 	}
 }
 
-void AssetMenu::instanceObject(const std::string &label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer *worldLst, const Vector &position)
+void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position)
 {
-	WO *wo = WO::New((asset.first.second), Vector(1, 1, 1));
+	WO* wo = WO::New((asset.first.second), Vector(1, 1, 1));
 	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
 	wo->upon_async_model_loaded([wo, asset]()
-								{
+		{
 			ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.second.second).value());
 			skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
 			skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
@@ -610,7 +630,7 @@ void AssetMenu::instanceObject(const std::string &label, ObjectandTexture asset,
 	worldLst->push_back(wo);
 }
 
-void AssetMenu::importAudio(irrklang::ISoundEngine *engine, const char *soundFileName)
+void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFileName)
 {
 	std::string name(soundFileName);
 	int lastSlashPos = name.rfind('\\'); // Find the position of the last '/'
@@ -628,9 +648,9 @@ void AssetMenu::importAudio(irrklang::ISoundEngine *engine, const char *soundFil
 	AudioSources.insert(std::make_pair(name, engine->addSoundSourceFromFile(soundFileName)));
 }
 
-void AssetMenu::modifyPose(const std::string &label, const Vector &position, const Mat4 &pose)
+void AssetMenu::modifyPose(const std::string& label, const Vector& position, const Mat4& pose)
 {
-	for (std::list<WO *>::iterator it = WorldObjects.begin(); it != WorldObjects.end(); ++it)
+	for (std::list<WO*>::iterator it = WorldObjects.begin(); it != WorldObjects.end(); ++it)
 	{
 		if (*(&(*it)->getLabel()) == label)
 		{
@@ -656,7 +676,7 @@ void AssetMenu::pushAllMessages()
 	}
 }
 
-void AssetMenu::previewAsset(ObjectandTexture asset, WorldContainer *worldLst)
+void AssetMenu::previewAsset(ObjectandTexture asset, WorldContainer* worldLst)
 {
 	for (int i = 0; i < worldLst->size(); ++i)
 	{
@@ -665,14 +685,14 @@ void AssetMenu::previewAsset(ObjectandTexture asset, WorldContainer *worldLst)
 			return;
 		}
 	}
-	GLViewNewModule *glView = ((GLViewNewModule *)ManagerGLView::getGLViewT<GLViewNewModule>());
-	Camera *cam = glView->getCamera();
+	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
+	Camera* cam = glView->getCamera();
 	auto position = cam->getPosition() + cam->getLookDirection() * 5;
 
-	WO *wo = WO::New((asset.first.second), Vector(1, 1, 1));
+	WO* wo = WO::New((asset.first.second), Vector(1, 1, 1));
 	wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
 	wo->upon_async_model_loaded([wo, asset]()
-								{
+		{
 			ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.second.second).value());
 			skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
 			skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
@@ -686,7 +706,7 @@ void AssetMenu::previewAsset(ObjectandTexture asset, WorldContainer *worldLst)
 	worldLst->push_back(previewInstance);
 }
 
-void AssetMenu::cancelPreview(WorldContainer *worldLst)
+void AssetMenu::cancelPreview(WorldContainer* worldLst)
 {
 	if (previewInstance != nullptr)
 	{
@@ -700,17 +720,21 @@ void AssetMenu::saveStitchedAssets()
 {
 	std::fstream outfile;
 	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "stitchedAssets.dat", std::ios::out);
-	size_t count = texturedObjects.size(); // Get the total number of elements
+	size_t count = categorizedTexturedObjects.size(); // Get the total number of elements
 	size_t current = 0;					   // Track the current element index
 
-	for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::const_iterator it = texturedObjects.begin(); it != texturedObjects.end(); ++it)
+	for (std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>::const_iterator it = categorizedTexturedObjects.begin(); it != categorizedTexturedObjects.end(); ++it)
 	{
-		outfile << it->first.first.first << std::endl;	 // object label
-		outfile << it->first.first.second << std::endl;	 // object path
-		outfile << it->first.second.first << std::endl;	 // texture label
-		outfile << it->first.second.second << std::endl; // texture path
-		outfile << it->second.first << std::endl;		 // default global X axis rotation
-		outfile << it->second.second;					 // default global Y axis rotation
+		for (std::set<std::pair<ObjectandTexture, std::pair<int, int>>>::const_iterator items = it->second.begin(); items != it->second.end(); ++items)
+		{
+			outfile << items->first.first.first << std::endl;
+			outfile << items->first.first.second << std::endl;
+			outfile << items->first.second.first << std::endl;
+			outfile << items->first.second.second << std::endl;
+			outfile << it->first << std::endl;
+			outfile << items->second.first << std::endl;
+			outfile << items->second.second;
+		}
 
 		if (++current < count)	  // Check if it's not the last element
 			outfile << std::endl; // Add newline only if it's not the last element
@@ -723,11 +747,17 @@ void AssetMenu::loadAssets()
 	std::fstream infile;
 	infile.open(ManagerEnvironmentConfiguration::getLMM() + "stitchedAssets.dat", std::ios::in);
 	std::string fromFile;
-	std::array<std::string, 6> stitchedAssetContents;
+	std::array<std::string, 7> stitchedAssetContents;
+	char category[256];
 	while (!infile.eof())
 	{
-		for (int i = 0; i < 6; ++i)
+		for (int i = 0; i < 7; ++i)
+		{
+			if (infile.eof())
+				return;
 			std::getline(infile, stitchedAssetContents[i]);
-		textureModel(std::make_pair(stitchedAssetContents[0], stitchedAssetContents[1]), std::make_pair(stitchedAssetContents[2], stitchedAssetContents[3]), std::make_pair(std::stoi(stitchedAssetContents[4]), std::stoi(stitchedAssetContents[5])));
+		}
+		strncpy(category, stitchedAssetContents[4].c_str(), sizeof(category));
+		textureModel(std::make_pair(stitchedAssetContents[0], stitchedAssetContents[1]), std::make_pair(stitchedAssetContents[2], stitchedAssetContents[3]), category, std::make_pair(std::stoi(stitchedAssetContents[5]), std::stoi(stitchedAssetContents[6])));
 	}
 }

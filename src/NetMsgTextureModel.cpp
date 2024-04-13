@@ -41,11 +41,13 @@ bool NetMsgTextureModel::toStream(NetMessengerStreamBuffer& os) const
 
 bool NetMsgTextureModel::fromStream(NetMessengerStreamBuffer& is)
 {
+	std::string categoryString;
 	is >> this->object.first;
 	is >> this->object.second;
 	is >> this->texture.first;
 	is >> this->texture.second;
-	is >> this->category;
+	is >> categoryString;
+	strncpy(this->category, categoryString.c_str(), sizeof(this->category));
 	is >> this->defaultRotation.first;
 	is >> this->defaultRotation.second;
 
