@@ -781,6 +781,7 @@ void AssetMenu::saveAssets()
 void AssetMenu::loadAssets()
 {
 	std::fstream infile;
+	std::ifstream queryFile;
 
 	// object files
 	infile.open(ManagerEnvironmentConfiguration::getLMM() + "objects.dat", std::ios::out);
@@ -793,7 +794,10 @@ void AssetMenu::loadAssets()
 			return;
 			std::getline(infile, objectFileContents[i]);
 		}
-		importObjectPath(std::make_pair(objectFileContents[0], objectFileContents[1]));
+		queryFile.open(objectFileContents[1]);
+		if (queryFile.good() && objectFileContents[1].substr(objectFileContents[1].size() - 3) == "obj")
+			importObjectPath(std::make_pair(objectFileContents[0], objectFileContents[1]));
+		queryFile.close();
 	}
 	infile.close();
 
@@ -808,7 +812,10 @@ void AssetMenu::loadAssets()
 			return;
 			std::getline(infile, textureFileContents[i]);
 		}
-		importObjectPath(std::make_pair(textureFileContents[0], textureFileContents[1]));
+		queryFile.open(textureFileContents[1]);
+		if (queryFile.good() && objectFileContents[1].substr(objectFileContents[1].size() - 3) == "jpg")
+			importObjectPath(std::make_pair(textureFileContents[0], textureFileContents[1]));
+		queryFile.close();
 	}
 	infile.close();
 
@@ -826,6 +833,15 @@ void AssetMenu::loadAssets()
 			std::getline(infile, stitchedAssetContents[i]);
 		}
 		strncpy(category, stitchedAssetContents[4].c_str(), sizeof(category));
-		textureModel(std::make_pair(stitchedAssetContents[0], stitchedAssetContents[1]), std::make_pair(stitchedAssetContents[2], stitchedAssetContents[3]), category, std::make_pair(std::stoi(stitchedAssetContents[5]), std::stoi(stitchedAssetContents[6])));
+		// void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char (& category)[256], const std::pair<int, int>& defaultXYRotation);
+		queryFile.open(stitchedAssetContents[1]);
+		if (queryFile.good())
+		{
+			queryFile.close();
+			queryFile.open(stitchedAssetContents[3]);
+			if (queryFile.good() && stitchedAssetContents[1].substr(stitchedAssetContents[1].size() - 3) == "obj" && stitchedAssetContents[1].substr(stitchedAssetContents[3].size() - 3) == "jpg")
+				textureModel(std::make_pair(stitchedAssetContents[0], stitchedAssetContents[1]), std::make_pair(stitchedAssetContents[2], stitchedAssetContents[3]), category, std::make_pair(std::stoi(stitchedAssetContents[5]), std::stoi(stitchedAssetContents[6])));
+		}
+		queryFile.close();
 	}
 }
