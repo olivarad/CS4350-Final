@@ -59,6 +59,7 @@ void NetMsgTextureModel::onMessageArrived()
 {
 	//std::cout << "Message Arrived" << std::endl;
 	//std::cout << this->toString();
+	
 	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
 	glView->assets.textureModel(object, texture, category, defaultRotation);
 }

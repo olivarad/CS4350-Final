@@ -1,4 +1,5 @@
 #include <sstream>
+#include <fstream>
 #include <string>
 #include "ManagerSerializableNetMsgMap.h"
 #include "NetMessengerStreamBuffer.h"
@@ -44,8 +45,20 @@ void NetMsgImportObject::onMessageArrived()
 {
 	//std::cout << "Message Arrived" << std::endl;
 	//std::cout << this->toString();
-	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
-	glView->assets.importObjectPath(object);
+	if (object.second.substr(object.second.length() - 3) != "obj")
+		return;
+	std::ifstream objectFile;
+	objectFile.open(object.second);
+	if (objectFile.good())
+	{
+		GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
+		glView->assets.importObjectPath(object);
+	}
+	else
+	{
+		// Send request for object and add it to this computer's multimedia directory
+	}
+	objectFile.close();
 }
 
 // Print information to terminal

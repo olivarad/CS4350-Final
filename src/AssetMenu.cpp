@@ -833,7 +833,6 @@ void AssetMenu::loadAssets()
 			std::getline(infile, stitchedAssetContents[i]);
 		}
 		strncpy(category, stitchedAssetContents[4].c_str(), sizeof(category));
-		// void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char (& category)[256], const std::pair<int, int>& defaultXYRotation);
 		queryFile.open(stitchedAssetContents[1]);
 		if (queryFile.good())
 		{

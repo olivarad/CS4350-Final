@@ -44,8 +44,20 @@ void NetMsgImportTexture::onMessageArrived()
 {
 	//std::cout << "Message Arrived" << std::endl;
 	//std::cout << this->toString();
-	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
-	glView->assets.importTexturePath(texture);
+	if (texture.second.substr(texture.second.length() - 3) != "jpg")
+		return;
+	std::ifstream textureFile;
+	textureFile.open(texture.second);
+	if (textureFile.good())
+	{
+		GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
+		glView->assets.importTexturePath(texture);
+	}
+	else 
+	{
+		// Send request for texture and add it to this computer's multimedia directory
+	}
+	textureFile.close();
 }
 
 // Print information to terminal

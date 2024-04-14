@@ -17,7 +17,6 @@ using namespace Aftr;
 
 typedef std::pair<std::string, irrklang::ISoundSource*> Audio; // Name of audio file, Source for play with 2D and 3D audio
 typedef std::pair<std::string, std::list<Audio>> PlayList; // Name of playlist, Audio element
-typedef std::pair<WO*, std::list<Audio*>> FullAsset; // World object with all of its potential sounds
 typedef std::pair<std::pair<std::string, std::string>, std::pair<std::string, std::string>> ObjectandTexture;
 
 class AssetMenu
@@ -34,7 +33,6 @@ public:
 	void importObjectPath(const std::pair<std::string, std::string>& object) { this->objectsPaths.insert(object); }
 	void importTexturePath(const std::pair<std::string, std::string>& texture) { this->texturePaths.insert(texture); }
 	void modifyPose(const std::string& label, const Vector& position, const Mat4& pose);
-	bool categoryMatcher(const std::pair<std::string, std::list<std::pair<ObjectandTexture, std::pair<int, int>>>>& item, const char (&category)[256]) { return item.first == category; }
 	// Import model to be used as a WO
 	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char (& category)[256], const std::pair<int, int>& defaultXYRotation);
 	// Push an object to the rendering worldLst and potentially label it
