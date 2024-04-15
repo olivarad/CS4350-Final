@@ -39,8 +39,6 @@ public:
 	void instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position);
 	// Import Audio to be used for 2D and 3D audio
 	void importAudio(irrklang::ISoundEngine* engine, const char* soundFileName);
-	// Add audio to a full asset
-	void addAudio(FullAsset& fullAsset, Audio* audio) { fullAsset.second.push_back(audio); }
 	void addNetMessage(std::shared_ptr<NetMsg> msg) { netMessages.push_back(msg); }
 	void pushAllMessages();
 	void previewAsset(ObjectandTexture asset, WorldContainer* worldLst);

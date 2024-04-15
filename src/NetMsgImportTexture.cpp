@@ -1,4 +1,5 @@
 #include <sstream>
+#include <fstream>
 #include <string>
 #include "ManagerSerializableNetMsgMap.h"
 #include "NetMessengerStreamBuffer.h"

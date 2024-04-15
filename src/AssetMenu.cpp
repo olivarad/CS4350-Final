@@ -514,7 +514,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 							engine->play2D(audioIt->second);
 						}
 					}
-					ImGui::NewLine;
+					ImGui::NewLine();
 					if (ImGui::Button("Stop Audio Playback"))
 					{
 						if (assets.CurrentBackgroudSound != nullptr)
@@ -722,34 +722,38 @@ void AssetMenu::saveAssets()
 
 	// object files
 	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "objects.dat", std::ios::out);
-	for (std::set<std::pair<std::string, std::string>>::const_iterator it = objectPaths.begin(); it != objectPaths.end(); ++it)
+	for (std::set<std::pair<std::string, std::string>>::const_iterator it = objectsPaths.begin(); it != objectsPaths.end();)
 	{
-		if (it == objectPaths.end())
+		auto curr = it;
+		++it;
+		if (it == objectsPaths.end())
 		{
-			outfile << it->first << std::endl;
-			outfile << it->second;
+			outfile << curr->first << std::endl;
+			outfile << curr->second;
 		}
 		else
 		{
-			outfile << it->first << std::endl;
-			outfile << it->second << std::endl;
+			outfile << curr->first << std::endl;
+			outfile << curr->second << std::endl;
 		}
 	}
 	outfile.close();
 
 	// texture files
 	outfile.open(ManagerEnvironmentConfiguration::getLMM() + "textures.dat", std::ios::out);
-	for (std::set<std::pair<std::string, std::string>>::const_iterator it = texturePaths.begin(); it != texturePaths.end(); ++it)
+	for (std::set<std::pair<std::string, std::string>>::const_iterator it = texturePaths.begin(); it != texturePaths.end();)
 	{
+		auto curr = it;
+		++it;
 		if (it == texturePaths.end())
 		{
-			outfile << it->first << std::endl;
-			outfile << it->second;
+			outfile << curr->first << std::endl;
+			outfile << curr->second;
 		}
 		else
 		{
-			outfile << it->first << std::endl;
-			outfile << it->second << std::endl;
+			outfile << curr->first << std::endl;
+			outfile << curr->second << std::endl;
 		}
 	}
 	outfile.close();
@@ -784,7 +788,7 @@ void AssetMenu::loadAssets()
 	std::ifstream queryFile;
 
 	// object files
-	infile.open(ManagerEnvironmentConfiguration::getLMM() + "objects.dat", std::ios::out);
+	infile.open(ManagerEnvironmentConfiguration::getLMM() + "objects.dat", std::ios::in);
 	std::array<std::string, 2> objectFileContents;
 	while (!infile.eof())
 	{
@@ -802,7 +806,7 @@ void AssetMenu::loadAssets()
 	infile.close();
 
 	// texture files
-	infile.open(ManagerEnvironmentConfiguration::getLMM() + "textures.dat", std::ios::out);
+	infile.open(ManagerEnvironmentConfiguration::getLMM() + "textures.dat", std::ios::in);
 	std::array<std::string, 2> textureFileContents;
 	while (!infile.eof())
 	{
@@ -813,8 +817,8 @@ void AssetMenu::loadAssets()
 			std::getline(infile, textureFileContents[i]);
 		}
 		queryFile.open(textureFileContents[1]);
-		if (queryFile.good() && objectFileContents[1].substr(objectFileContents[1].size() - 3) == "jpg")
-			importObjectPath(std::make_pair(textureFileContents[0], textureFileContents[1]));
+		if (queryFile.good() && textureFileContents[1].substr(textureFileContents[1].size() - 3) == "jpg")
+			importTexturePath(std::make_pair(textureFileContents[0], textureFileContents[1]));
 		queryFile.close();
 	}
 	infile.close();
@@ -838,7 +842,7 @@ void AssetMenu::loadAssets()
 		{
 			queryFile.close();
 			queryFile.open(stitchedAssetContents[3]);
-			if (queryFile.good() && stitchedAssetContents[1].substr(stitchedAssetContents[1].size() - 3) == "obj" && stitchedAssetContents[1].substr(stitchedAssetContents[3].size() - 3) == "jpg")
+			if (queryFile.good() && stitchedAssetContents[1].substr(stitchedAssetContents[1].size() - 3) == "obj" && stitchedAssetContents[3].substr(stitchedAssetContents[3].size() - 3) == "jpg")
 				textureModel(std::make_pair(stitchedAssetContents[0], stitchedAssetContents[1]), std::make_pair(stitchedAssetContents[2], stitchedAssetContents[3]), category, std::make_pair(std::stoi(stitchedAssetContents[5]), std::stoi(stitchedAssetContents[6])));
 		}
 		queryFile.close();
