@@ -29,9 +29,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 	static std::filesystem::path selected_path = "";
 	static AftrImGui_Markdown_Renderer md_render = Aftr::make_default_MarkdownRenderer();
 	static char playlistName[256] = {};
-	static char label[256] = {};
 	static std::string pathAsString = "";
-	static std::pair<ObjectandTexture, std::pair<int, int>> asset = std::make_pair(std::make_pair(std::make_pair("", ""), std::make_pair("", "")), std::make_pair(0, 0));
 	static float position[3];
 	ImGui::Begin("AssetMenu");
 	{
@@ -123,8 +121,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			if (ImGui::Button("Instance Asset"))
 			{
 				std::memset(position, 0, 3);
-				asset.first.first.first = asset.first.first.second = asset.first.second.first = asset.first.second.second = "";
-				std::memset(label, '\0', sizeof(label));
+				assets.asset.first.first.first = assets.asset.first.first.second = assets.asset.first.second.first = assets.asset.first.second.second = "";
+				std::memset(assets.label, '\0', sizeof(assets.label));
 				assets.ShowingInstanceObjectMenu = true;
 			}
 			if (assets.selectedInstance != nullptr)
@@ -323,7 +321,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				ImGui::Spacing();
 				ImGui::Text("Provide Label");
 				ImGui::NewLine();
-				ImGui::InputText("label", label, sizeof(label));
+				ImGui::InputText("label", assets.label, sizeof(assets.label));
 				ImGui::NewLine();
 				ImGui::Text("Choose Object");
 				ImGui::NewLine();
@@ -337,23 +335,22 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						{
 							if (ImGui::Button(("        " + items->first.first.first + "-" + items->first.second.first).c_str()))
 							{
-								asset.first = items->first;
-								asset.second = items->second;
+								assets.asset.first = items->first;
+								assets.asset.second = items->second;
 							}
 						}
 					}
 				}
 				ImGui::Text("Provide position");
 				ImGui::InputFloat3(" ", position);
-				auto it = std::find_if(worldLst->begin(), worldLst->end(), [&](WO* obj) { return assets.labelMatches(label, obj); });
+				auto it = std::find_if(worldLst->begin(), worldLst->end(), [&](WO* obj) { return assets.labelMatches(assets.label, obj); });
 				if (it == worldLst->end())
 				{
 					if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
 					{
-						if (label[0] != '\0' && asset.first.first.second != "")
+						if (assets.label[0] != '\0' && assets.asset.first.first.second != "")
 						{
-							assets.instanceObject(label, asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
-							//assets.instanceObject(label, asset.first, asset.second, worldLst);
+							//assets.instanceObject(label, asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
 							/*std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
 							msg->label = label;
 							msg->asset = asset.first;
@@ -363,6 +360,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								assets.client->sendNetMsgSynchronousTCP(*msg);
 							else
 								assets.addNetMessage(msg);*/
+							assets.placingAsset = true;
 							assets.ShowingInstanceObjectMenu = false;
 							ImGui::CloseCurrentPopup();
 						}
@@ -384,6 +382,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				}
 				ImGui::EndPopup();
 			}
+		}
+		if (assets.assetPositionSelected && assets.placingAsset)
+		{
+			GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
+			std::optional<Vector> position = glView->getLastSelectedCoordinate();
+			if (position.has_value())			
+				assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, position.value());
+			assets.assetPositionSelected = false;
+			assets.placingAsset = false;
 		}
 		if (ImGui::CollapsingHeader("Audio"))
 		{
@@ -628,37 +635,6 @@ void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset,
 	wo->rotateAboutGlobalY(defaultXYRotation.second * DEGtoRAD);
 	WorldObjects.push_back(wo);
 	worldLst->push_back(wo);
-}
-
-void AssetMenu::instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst)
-{
-	placingAsset = true;
-	while (placingAsset);
-	if (!canceledPlacingAsset)
-	{
-		GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
-		std::optional<Vector> position = glView->getLastSelectedCoordinate();
-		if (!position.has_value())
-			return;
-		WO* wo = WO::New((asset.first.second), Vector(1, 1, 1));
-		wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-		wo->upon_async_model_loaded([wo, asset]()
-			{
-				ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.second.second).value());
-				skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
-				skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
-				skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
-				skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
-				skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
-				wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin); });
-		wo->setLabel(label);
-		wo->setPosition(position.value());
-		wo->rotateAboutGlobalX(defaultXYRotation.first * DEGtoRAD);
-		wo->rotateAboutGlobalY(defaultXYRotation.second * DEGtoRAD);
-		WorldObjects.push_back(wo);
-		worldLst->push_back(wo);
-	}
-	canceledPlacingAsset = false;
 }
 
 void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFileName)

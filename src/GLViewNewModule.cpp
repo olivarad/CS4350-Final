@@ -158,7 +158,7 @@ void GLViewNewModule::onMouseDown(const SDL_MouseButtonEvent& e)
 		}
 		else
 		{
-
+			assets.setAssetPositionSelected();
 		}
 	}
 	else if (e.button == SDL_BUTTON_RIGHT)
