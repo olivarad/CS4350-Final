@@ -105,6 +105,7 @@ void GLViewNewModule::updateWorld()
 	{
 		moveCamera();
 	}
+
 	engine->setListenerPosition(convertAftrVecToIrrklang(this->cam->getPosition()), convertAftrVecToIrrklang(this->cam->getLookDirection()), convertAftrVecToIrrklang(this->cam->getCameraVelocity()), irrklang::vec3df(0, 1, 0));
 }
 
@@ -142,9 +143,30 @@ void GLViewNewModule::onResizeWindow(GLsizei width, GLsizei height)
 
 void GLViewNewModule::onMouseDown(const SDL_MouseButtonEvent& e)
 {
-	GLView::onMouseDown(e);
-}
+	if (e.button == SDL_BUTTON_LEFT)
+	{
+		GLView::onMouseDown(e);
+		if (!assets.getPlacingAsset())
+		{
+			unsigned int x, y = 0;
+			this->mouseHandler.getMouseDownPosition(x, y); //get pixel use clicked on
+			this->getCamera()->updateProjectionMatrix(); //onMouseDownSelection may need the latest projection matrix in this camera renderSelect
+			this->getCamera()->updateViewMatrix(); //onMouseDownSelection may need the latest view matrix in this camera for renderSelect
+			this->onMouseDownSelection(x, y, *this->getCamera()); //see if a WO was drawn on that pixel
+			if (this->getLastSelectedWO() != nullptr)
+				assets.setLastSelectedInstance(this->getLastSelectedWO());
+		}
+		else
+		{
 
+		}
+	}
+	else if (e.button == SDL_BUTTON_RIGHT)
+	{
+		assets.setCaceledPlacingAsset();
+		assets.resetPlacingAsset();
+	}
+}
 
 void GLViewNewModule::onMouseUp(const SDL_MouseButtonEvent& e)
 {

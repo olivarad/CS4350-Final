@@ -37,6 +37,7 @@ public:
 	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char (& category)[256], const std::pair<int, int>& defaultXYRotation);
 	// Push an object to the rendering worldLst and potentially label it
 	void instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst, const Vector& position);
+	void instanceObject(const std::string& label, ObjectandTexture asset, std::pair<int, int> defaultXYRotation, WorldContainer* worldLst);
 	// Import Audio to be used for 2D and 3D audio
 	void importAudio(irrklang::ISoundEngine* engine, const char* soundFileName);
 	void addNetMessage(std::shared_ptr<NetMsg> msg) { netMessages.push_back(msg); }
@@ -45,6 +46,11 @@ public:
 	void cancelPreview(WorldContainer* worldLst);
 	void saveAssets();
 	void loadAssets();
+	void setLastSelectedInstance(WO* wo);
+	bool getPlacingAsset() { return placingAsset; }
+	void resetPlacingAsset() { placingAsset = false; }
+	void setCaceledPlacingAsset() { canceledPlacingAsset = true; }
+	bool labelMatches(const std::string& targetLabel, const WO* wo) { return wo->getLabel() == targetLabel; }
 
 	NetMessengerClient* client = nullptr;
 
@@ -56,6 +62,8 @@ protected:
 	bool ShowingPlaylistCreatorMenu = false;
 	bool ShowingAssetCreatorMenu = false;
 	bool ShowingInstanceObjectMenu = false;
+	bool placingAsset = false;
+	bool canceledPlacingAsset = false;
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
 	std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects; // List of categories and pointers to textured objects in that category

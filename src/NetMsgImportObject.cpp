@@ -40,7 +40,6 @@ bool NetMsgImportObject::fromStream(NetMessengerStreamBuffer& is)
 	return true;
 }
 
-// Use Data
 void NetMsgImportObject::onMessageArrived()
 {
 	//std::cout << "Message Arrived" << std::endl;
