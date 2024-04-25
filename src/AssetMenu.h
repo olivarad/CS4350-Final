@@ -55,6 +55,7 @@ public:
 	NetMessengerClient* client = nullptr;
 
 protected:
+	bool isTile = false;
 	std::list<std::shared_ptr<NetMsg>> netMessages;
 	std::string currentPlaylist = "";
 	irrklang::ISoundSource* CurrentBackgroudSound = nullptr;

@@ -341,15 +341,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						}
 					}
 				}
-				ImGui::Text("Provide position");
-				ImGui::InputFloat3(" ", position);
+				if (ImGui::Button(assets.isTile ? "Tile Selected" : "Non-Tile Selected"))
+				{
+					assets.isTile = !assets.isTile;
+				}
 				auto it = std::find_if(worldLst->begin(), worldLst->end(), [&](WO* obj) { return assets.labelMatches(assets.label, obj); });
-				if (it == worldLst->end())
+				if (it == worldLst->end() && assets.asset.first.first.second != "")
 				{
 					if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
 					{
-						if (assets.label[0] != '\0' && assets.asset.first.first.second != "")
-						{
 							//assets.instanceObject(label, asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
 							/*std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
 							msg->label = label;
@@ -363,7 +363,6 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 							assets.placingAsset = true;
 							assets.ShowingInstanceObjectMenu = false;
 							ImGui::CloseCurrentPopup();
-						}
 					}
 					ImGui::SameLine();
 					if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
@@ -387,7 +386,68 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 		{
 			GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
 			std::optional<Vector> position = glView->getLastSelectedCoordinate();
-			if (position.has_value())			
+			std::optional<WO*> object = glView->getLastSelectedWO();
+			if (object.has_value())
+			{
+				WO* wo = object.value();
+				std::list<WO*>::const_iterator query;
+				query = std::find_if(assets.WorldObjects.begin(), assets.WorldObjects.end(), [&](WO* woPtr) { return woPtr == object.value(); });
+				if (query != assets.WorldObjects.end()) // Placed against an asset with support for chaining
+				{
+					if (position.has_value())
+					{
+						VectorT<float> objectPosition = wo->getPosition();
+						float objectX = objectPosition.at(0);
+						float objectY = objectPosition.at(1);
+						float objectZ = objectPosition.at(2);
+						float objectXRot = std::acos(wo->getModel()->getRelXDir().dotProduct((1, 0, 0)));
+						float objectYRot = std::acos(wo->getModel()->getRelYDir().dotProduct((0, 1, 0)));
+						float objectZRot = std::acos(wo->getModel()->getRelZDir().dotProduct((0, 0, 1)));
+						if (assets.isTile)
+						{
+							Vector pos = position.value();
+							float diffX = objectX - pos.at(0);
+							float diffY = objectY - pos.at(1);
+							if (fabs(diffX) > fabs(diffY)) // Place object with an offset in the x (y is flush)
+							{
+								float seperation = wo->getModel()->getBoundingBox().getlxlylz().at(0)/* * std::cos(objectYRot) * std::cos(objectZRot)*/;
+								pos.at(0) = (pos.at(0) > objectX ? objectX + seperation : objectX - seperation);
+								pos.at(1) = objectY;
+								pos.at(2) = objectZ;
+								assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, pos);
+							}
+							else // Place object with an offset in the y (x is flush)
+							{
+								float seperation = wo->getModel()->getBoundingBox().getlxlylz().at(1)/* * std::cos(objectXRot) * std::cos(objectZRot)*/;
+								pos.at(0) = objectX;
+								pos.at(1) = (pos.at(1) > objectY ? objectY + seperation : objectY - seperation);
+								pos.at(2) = objectZ;
+								assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, pos);
+							}
+						}
+						else
+						{
+							
+							float objectHeight = wo->getModel()->getBoundingBox().getlxlylz().at(2) * (std::cos(objectXRot) * std::cos(objectYRot));
+							Vector pos = position.value();
+							pos.at(0) = objectX;
+							pos.at(1) = objectY;
+							pos.at(2) = objectZ + objectHeight;
+							assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, pos);
+						}
+					}
+					assets.assetPositionSelected = false;
+					assets.placingAsset = false;
+				}
+				else
+				{
+					if (position.has_value())
+						assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, position.value());
+					assets.assetPositionSelected = false;
+					assets.placingAsset = false;
+				}
+			}
+			if (position.has_value() && !object.value())			
 				assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, position.value());
 			assets.assetPositionSelected = false;
 			assets.placingAsset = false;
