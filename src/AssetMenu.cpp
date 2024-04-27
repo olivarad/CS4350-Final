@@ -23,7 +23,7 @@
 #include <algorithm>
 using namespace Aftr;
 
-void calculateNewDimensions(const Vector& originalDimensions, const std::pair<int, int>& xyRotations, Vector& newDimensions);
+void calculateNewDimensions(const Vector& originalDimensions, Mat4 matrix, Vector& newDimensions);
 
 void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst)
 {
@@ -417,7 +417,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
 								Vector maxes = wo->getModel()->getBoundingBox().getMax();
 								Vector newMaxes;
-								calculateNewDimensions(maxes, asset.second, newMaxes);
+								Mat4 matrix = wo->getDisplayMatrix();
+								calculateNewDimensions(maxes, matrix, newMaxes);
 								float offset = newMaxes.z;
 								newPosition.z += offset;
 								wo->setPosition(newPosition);
@@ -474,15 +475,13 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											}
 											Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
 											Vector newOriginalMaxes;
-											calculateNewDimensions(originalMaxes, originalObjectRotations, newOriginalMaxes);
+											calculateNewDimensions(originalMaxes, originalObject->getDisplayMatrix(), newOriginalMaxes);
 											Vector maxes = wo->getModel()->getBoundingBox().getMax();
 											Vector newMaxes;
-											calculateNewDimensions(maxes, asset.second, newMaxes);
+											calculateNewDimensions(maxes, wo->getDisplayMatrix(), newMaxes);
 											float originalXDIM = newOriginalMaxes.x;
 											float newXDIM = newMaxes.x;
 											float offset = (originalXDIM + newXDIM);
-											std::cout << "\n\n\n\n\nCenter: " << originalCenter << "\n\n\n\n\n\n";
-											std::cout << "\n\n\n\n\nOffset: " << offset << "\n\n\n\n\n\n";
 											newPosition.x = diffX < 0 ? originalCenter.x + offset : originalCenter.x - offset;
 											newPosition.y = originalCenter.y;
 											newPosition.z = originalCenter.z;
@@ -528,17 +527,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											}
 											Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
 											Vector newOriginalMaxes;
-											calculateNewDimensions(originalMaxes, originalObjectRotations, newOriginalMaxes);
+											calculateNewDimensions(originalMaxes, originalObject->getDisplayMatrix(), newOriginalMaxes);
 											Vector maxes = wo->getModel()->getBoundingBox().getMax();
 											Vector newMaxes;
-											calculateNewDimensions(maxes, asset.second, newMaxes);
+											calculateNewDimensions(maxes, wo->getDisplayMatrix(), newMaxes);
 											float originalYDIM = newOriginalMaxes.y;
 											float newYDIM = newMaxes.y;
 											float offset = (originalYDIM + newYDIM);
-											std::cout << "\n\n\n\n\nCenter: " << originalCenter << "\n\n\n\n\n\n";
-											std::cout << "\n\n\n\n\nOffset: " << offset << "\n\n\n\n\n\n";
 											newPosition.x = originalCenter.x;
-											newPosition.y = diffY < 0 ? originalCenter.y + offset : originalCenter.y - offset;
+											newPosition.y = diffY < 0 ? originalCenter.y - offset : originalCenter.y + offset;
 											newPosition.z = originalCenter.z;
 											wo->setPosition(newPosition);
 											WorldObjects->push_back(wo);
@@ -583,13 +580,13 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 										}
 										Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
 										Vector newOriginalMaxes;
-										calculateNewDimensions(originalMaxes, originalObjectRotations, newOriginalMaxes);
+										calculateNewDimensions(originalMaxes, originalObject->getDisplayMatrix(), newOriginalMaxes);
 										Vector maxes = wo->getModel()->getBoundingBox().getMax();
 										Vector newMaxes;
-										calculateNewDimensions(maxes, asset.second, newMaxes);
+										calculateNewDimensions(maxes, wo->getDisplayMatrix(), newMaxes);
 										float originalZDIM = newOriginalMaxes.z;
 										float newZDIM = newMaxes.z;
-										float offset = (originalZDIM + newZDIM) / 2;
+										float offset = (originalZDIM + newZDIM);
 										newPosition.x = originalCenter.x;
 										newPosition.y = originalCenter.y;
 										newPosition.z = originalCenter.z + offset;
@@ -1079,22 +1076,7 @@ void AssetMenu::setLastSelectedInstance(WO* wo)
 		selectedInstance = wo;
 }
 
-void calculateNewDimensions(const Vector& originalDimensions, const std::pair<int, int>& xyRotations, Vector& newDimensions) 
+void calculateNewDimensions(const Vector& originalDimensions, Mat4 matrix, Vector& newDimensions) 
 {
-	const double DEGtoRAD = M_PI / 180.0;
-
-	// Convert rotation angles from degrees to radians
-	double radRotationX = xyRotations.first * DEGtoRAD;
-	double radRotationY = xyRotations.second * DEGtoRAD;
-
-	// Apply the rotation angles to calculate the new dimensions
-	double rotatedWidth = originalDimensions.y * cos(radRotationY) + originalDimensions.z * sin(radRotationY);
-	double rotatedHeight = originalDimensions.y * sin(radRotationX) * sin(radRotationY) +
-		originalDimensions.z * cos(radRotationX);
-	double rotatedDepth = originalDimensions.x;
-
-	// Assign rotated dimensions
-	newDimensions.x = rotatedDepth;
-	newDimensions.y = sqrt(rotatedWidth * rotatedWidth);
-	newDimensions.z = sqrt(rotatedHeight * rotatedHeight);
+	newDimensions = matrix * originalDimensions;
 }
