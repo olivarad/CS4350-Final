@@ -23,6 +23,8 @@
 #include <algorithm>
 using namespace Aftr;
 
+void calculateNewDimensions(const Vector& originalDimensions, const std::pair<int, int>& xyRotations, Vector& newDimensions);
+
 void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEngine* engine, WorldContainer* worldLst)
 {
 	// ImGui::SetWindowPos("AssetMenu", ImVec2(0, 0));
@@ -350,19 +352,19 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 				{
 					if ((ImGui::Button("Confirm") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))))
 					{
-							//assets.instanceObject(label, asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
-							/*std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
-							msg->label = label;
-							msg->asset = asset.first;
-							msg->defaultRotation = asset.second;
-							msg->position = position;
-							if (assets.client != nullptr)
-								assets.client->sendNetMsgSynchronousTCP(*msg);
-							else
-								assets.addNetMessage(msg);*/
-							assets.placingAsset = true;
-							assets.ShowingInstanceObjectMenu = false;
-							ImGui::CloseCurrentPopup();
+						//assets.instanceObject(label, asset.first, asset.second, worldLst, Vector(position[0], position[1], position[2]));
+						/*std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+						msg->label = label;
+						msg->asset = asset.first;
+						msg->defaultRotation = asset.second;
+						msg->position = position;
+						if (assets.client != nullptr)
+							assets.client->sendNetMsgSynchronousTCP(*msg);
+						else
+							assets.addNetMessage(msg);*/
+						assets.placingAsset = true;
+						assets.ShowingInstanceObjectMenu = false;
+						ImGui::CloseCurrentPopup();
 					}
 					ImGui::SameLine();
 					if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
@@ -387,70 +389,224 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
 			std::optional<Vector> position = glView->getLastSelectedCoordinate();
 			std::optional<WO*> object = glView->getLastSelectedWO();
-			if (object.has_value())
+			if (position.has_value())
 			{
-				WO* wo = object.value();
-				std::list<WO*>::const_iterator query;
-				query = std::find_if(assets.WorldObjects.begin(), assets.WorldObjects.end(), [&](WO* woPtr) { return woPtr == object.value(); });
-				if (query != assets.WorldObjects.end()) // Placed against an asset with support for chaining
+				Vector newPosition = position.value();
+				if (object.has_value())
 				{
-					if (position.has_value())
+					WO* originalObject = object.value();
+					if (originalObject->getLabel() == "Grass") // Placing against grass
 					{
-						VectorT<float> objectPosition = wo->getPosition();
-						float objectX = objectPosition.at(0);
-						float objectY = objectPosition.at(1);
-						float objectZ = objectPosition.at(2);
-						float objectXRot = std::acos(wo->getModel()->getRelXDir().dotProduct((1, 0, 0)));
-						float objectYRot = std::acos(wo->getModel()->getRelYDir().dotProduct((0, 1, 0)));
-						float objectZRot = std::acos(wo->getModel()->getRelZDir().dotProduct((0, 0, 1)));
-						if (assets.isTile)
+						assets.resetPlacingAsset();
+						auto asset = assets.asset;
+						std::string label = assets.label;
+						std::list<WO*>* WorldObjects = &assets.WorldObjects;
+						WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
+						wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+						wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject]() mutable
+							{
+								ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
+								skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
+								skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
+								skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
+								skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
+								skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
+								wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
+								wo->setLabel(label);
+								wo->rotateAboutGlobalX(asset.second.first * DEGtoRAD);
+								wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
+								Vector maxes = wo->getModel()->getBoundingBox().getMax();
+								Vector newMaxes;
+								calculateNewDimensions(maxes, asset.second, newMaxes);
+								float offset = newMaxes.z;
+								newPosition.z += offset;
+								wo->setPosition(newPosition);
+								WorldObjects->push_back(wo);
+								worldLst->push_back(wo);
+							});
+					}
+					else
+					{
+						std::string originalLabel = originalObject->getLabel();
+						std::list<WO*>::const_iterator it;
+						it = std::find_if(assets.WorldObjects.begin(), assets.WorldObjects.end(), [originalLabel](WO* obj) { return obj->getLabel() == originalLabel; });
+						if (it != assets.WorldObjects.end()) // Original object is a "chainable" asset
 						{
-							Vector pos = position.value();
-							float diffX = objectX - pos.at(0);
-							float diffY = objectY - pos.at(1);
-							if (fabs(diffX) > fabs(diffY)) // Place object with an offset in the x (y is flush)
+							Vector originalCenter = originalObject->getModel()->getBoundingBox().getCenterPoint();
+							if (assets.isTile) // Placing a tile
 							{
-								float seperation = wo->getModel()->getBoundingBox().getlxlylz().at(0)/* * std::cos(objectYRot) * std::cos(objectZRot)*/;
-								pos.at(0) = (pos.at(0) > objectX ? objectX + seperation : objectX - seperation);
-								pos.at(1) = objectY;
-								pos.at(2) = objectZ;
-								assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, pos);
+								float diffX = originalCenter.at(0) - newPosition.at(0);
+								float diffY = originalCenter.at(1) - newPosition.at(1);
+								if (fabs(diffX) > fabs(diffY)) // The objects will be offset in the x direction
+								{
+									assets.resetPlacingAsset();
+									std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
+									std::string label = assets.label;
+									std::list<WO*>* WorldObjects = &assets.WorldObjects;
+									std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
+									WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
+									wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+									wo->upon_async_model_loaded([wo, asset, label, &newPosition, WorldObjects, worldLst, originalObject, diffX, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+										{
+											ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
+											skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
+											skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
+											skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
+											skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
+											skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
+											wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
+											wo->setLabel(label);
+											wo->rotateAboutGlobalX(asset.second.first* DEGtoRAD);
+											wo->rotateAboutGlobalY(asset.second.second* DEGtoRAD);
+											std::pair<int, int> originalObjectRotations = std::make_pair(0, 0);
+											for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : *categorizedTexturedObjects)
+											{
+												std::set<std::pair<ObjectandTexture, std::pair<int, int>>>& objectSet = category.second;
+												for (const auto& objAndTex : objectSet) 
+												{
+													ObjectandTexture objTex = objAndTex.first;
+													if (objTex.first.first == originalLabel && objTex.first.second == originalObject->getModel()->getModelDataShared()->getFileName()) // Probably a match
+													{
+														originalObjectRotations = objAndTex.second;
+													}
+												}
+											}
+											Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
+											Vector newOriginalMaxes;
+											calculateNewDimensions(originalMaxes, originalObjectRotations, newOriginalMaxes);
+											Vector maxes = wo->getModel()->getBoundingBox().getMax();
+											Vector newMaxes;
+											calculateNewDimensions(maxes, asset.second, newMaxes);
+											float originalXDIM = newOriginalMaxes.x;
+											float newXDIM = newMaxes.x;
+											float offset = (originalXDIM + newXDIM) / 2;
+											newPosition.x = diffX < 0 ? originalCenter.x + offset : originalCenter.x - offset;
+											newPosition.y = originalCenter.y;
+											newPosition.z = originalCenter.z;
+											wo->setPosition(newPosition);
+											WorldObjects->push_back(wo);
+											worldLst->push_back(wo);
+										});
+								}
+								else // The objects will be offset in the y direction
+								{
+									assets.resetPlacingAsset();
+									std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
+									std::string label = assets.label;
+									std::list<WO*>* WorldObjects = &assets.WorldObjects;
+									std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
+									WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
+									wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+									wo->upon_async_model_loaded([wo, asset, label, &newPosition, WorldObjects, worldLst, originalObject, diffY, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+										{
+											ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
+											skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
+											skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
+											skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
+											skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
+											skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
+											wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
+											wo->setLabel(label);
+											wo->rotateAboutGlobalX(asset.second.first* DEGtoRAD);
+											wo->rotateAboutGlobalY(asset.second.second* DEGtoRAD);
+											std::pair<int, int> originalObjectRotations = std::make_pair(0, 0);
+											for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : *categorizedTexturedObjects)
+											{
+												std::set<std::pair<ObjectandTexture, std::pair<int, int>>>& objectSet = category.second;
+												for (const auto& objAndTex : objectSet)
+												{
+													ObjectandTexture objTex = objAndTex.first;
+													if (objTex.first.first == originalLabel && objTex.first.second == originalObject->getModel()->getModelDataShared()->getFileName()) // Probably a match
+													{
+														originalObjectRotations = objAndTex.second;
+													}
+												}
+											}
+											Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
+											Vector newOriginalMaxes;
+											calculateNewDimensions(originalMaxes, originalObjectRotations, newOriginalMaxes);
+											Vector maxes = wo->getModel()->getBoundingBox().getMax();
+											Vector newMaxes;
+											calculateNewDimensions(maxes, asset.second, newMaxes);
+											float originalYDIM = newOriginalMaxes.y;
+											float newYDIM = newMaxes.y;
+											float offset = (originalYDIM + newYDIM) / 2;
+											newPosition.x = originalCenter.x;
+											newPosition.y = diffY < 0 ? originalCenter.y + offset : originalCenter.y - offset;
+											newPosition.z = originalCenter.z;
+											wo->setPosition(newPosition);
+											WorldObjects->push_back(wo);
+											worldLst->push_back(wo);
+										});
+								}
 							}
-							else // Place object with an offset in the y (x is flush)
+							else // Not placing a tile
 							{
-								float seperation = wo->getModel()->getBoundingBox().getlxlylz().at(1)/* * std::cos(objectXRot) * std::cos(objectZRot)*/;
-								pos.at(0) = objectX;
-								pos.at(1) = (pos.at(1) > objectY ? objectY + seperation : objectY - seperation);
-								pos.at(2) = objectZ;
-								assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, pos);
+								assets.resetPlacingAsset();
+								std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
+								std::string label = assets.label;
+								std::list<WO*>* WorldObjects = &assets.WorldObjects;
+								std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
+								WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
+								wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
+								wo->upon_async_model_loaded([wo, asset, label, &newPosition, WorldObjects, worldLst, originalObject, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+									{
+										ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
+										skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
+										skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light
+										skin.setDiffuse(aftrColor4f(0.6f, 0.6f, 0.6f, 0.6f)); //Diffuse color components (ie, matte shading color of this object)
+										skin.setSpecular(aftrColor4f(0.6f, 0.6f, 0.6f, 1.0f)); //Specular color component (ie, how "shiney" it is)
+										skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
+										wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
+										wo->setLabel(label);
+										wo->rotateAboutGlobalX(asset.second.first * DEGtoRAD);
+										wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
+										std::pair<int, int> originalObjectRotations = std::make_pair(0, 0);
+										for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : *categorizedTexturedObjects)
+										{
+											std::set<std::pair<ObjectandTexture, std::pair<int, int>>>& objectSet = category.second;
+											for (const auto& objAndTex : objectSet)
+											{
+												ObjectandTexture objTex = objAndTex.first;
+												if (objTex.first.first == originalLabel && objTex.first.second == originalObject->getModel()->getModelDataShared()->getFileName()) // Probably a match
+												{
+													originalObjectRotations = objAndTex.second;
+												}
+											}
+										}
+										Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
+										Vector newOriginalMaxes;
+										calculateNewDimensions(originalMaxes, originalObjectRotations, newOriginalMaxes);
+										Vector maxes = wo->getModel()->getBoundingBox().getMax();
+										Vector newMaxes;
+										calculateNewDimensions(maxes, asset.second, newMaxes);
+										float originalZDIM = newOriginalMaxes.z;
+										float newZDIM = newMaxes.z;
+										float offset = (originalZDIM + newZDIM) / 2;
+										newPosition.x = originalCenter.x;
+										newPosition.y = originalCenter.y;
+										newPosition.z = originalCenter.z + offset;
+										wo->setPosition(newPosition);
+										WorldObjects->push_back(wo);
+										worldLst->push_back(wo);
+									});
 							}
 						}
 						else
 						{
-							
-							float objectHeight = wo->getModel()->getBoundingBox().getlxlylz().at(2) * (std::cos(objectXRot) * std::cos(objectYRot));
-							Vector pos = position.value();
-							pos.at(0) = objectX;
-							pos.at(1) = objectY;
-							pos.at(2) = objectZ + objectHeight;
-							assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, pos);
+							assets.assetPositionSelected = false;
 						}
 					}
-					assets.assetPositionSelected = false;
-					assets.placingAsset = false;
 				}
 				else
 				{
-					if (position.has_value())
-						assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, position.value());
 					assets.assetPositionSelected = false;
-					assets.placingAsset = false;
 				}
 			}
-			if (position.has_value() && !object.value())			
-				assets.instanceObject(assets.label, assets.asset.first, assets.asset.second, worldLst, position.value());
-			assets.assetPositionSelected = false;
-			assets.placingAsset = false;
+			else
+			{
+				assets.assetPositionSelected = false;
+			}
 		}
 		if (ImGui::CollapsingHeader("Audio"))
 		{
@@ -914,4 +1070,24 @@ void AssetMenu::setLastSelectedInstance(WO* wo)
 	it = find(WorldObjects.begin(), WorldObjects.end(), wo);
 	if (it != WorldObjects.end())
 		selectedInstance = wo;
+}
+
+void calculateNewDimensions(const Vector& originalDimensions, const std::pair<int, int>& xyRotations, Vector& newDimensions) 
+{
+	const double DEGtoRAD = M_PI / 180.0;
+
+	// Convert rotation angles from degrees to radians
+	double radRotationX = xyRotations.first * DEGtoRAD;
+	double radRotationY = xyRotations.second * DEGtoRAD;
+
+	// Apply the rotation angles to calculate the new dimensions
+	double rotatedWidth = originalDimensions.y * cos(radRotationY) + originalDimensions.z * sin(radRotationY);
+	double rotatedHeight = originalDimensions.y * sin(radRotationX) * sin(radRotationY) +
+		originalDimensions.z * cos(radRotationX);
+	double rotatedDepth = originalDimensions.x;
+
+	// Assign rotated dimensions
+	newDimensions.x = rotatedDepth;
+	newDimensions.y = sqrt(rotatedWidth * rotatedWidth);
+	newDimensions.z = sqrt(rotatedHeight * rotatedHeight);
 }

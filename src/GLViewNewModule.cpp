@@ -146,7 +146,7 @@ void GLViewNewModule::onMouseDown(const SDL_MouseButtonEvent& e)
 	if (e.button == SDL_BUTTON_LEFT)
 	{
 		GLView::onMouseDown(e);
-		if (!assets.getPlacingAsset())
+		if (assets.getPlacingAsset())
 		{
 			unsigned int x, y = 0;
 			this->mouseHandler.getMouseDownPosition(x, y); //get pixel use clicked on
@@ -154,16 +154,14 @@ void GLViewNewModule::onMouseDown(const SDL_MouseButtonEvent& e)
 			this->getCamera()->updateViewMatrix(); //onMouseDownSelection may need the latest view matrix in this camera for renderSelect
 			this->onMouseDownSelection(x, y, *this->getCamera()); //see if a WO was drawn on that pixel
 			if (this->getLastSelectedWO() != nullptr)
+			{
 				assets.setLastSelectedInstance(this->getLastSelectedWO());
-		}
-		else
-		{
-			assets.setAssetPositionSelected();
+				assets.setAssetPositionSelected();
+			}
 		}
 	}
 	else if (e.button == SDL_BUTTON_RIGHT)
 	{
-		assets.setCaceledPlacingAsset();
 		assets.resetPlacingAsset();
 	}
 }

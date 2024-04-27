@@ -47,8 +47,9 @@ public:
 	void loadAssets();
 	void setLastSelectedInstance(WO* wo);
 	bool getPlacingAsset() { return placingAsset; }
-	void resetPlacingAsset() { placingAsset = false; }
-	void setCaceledPlacingAsset() { canceledPlacingAsset = true; }
+	bool getAssetPositionSelected() { return assetPositionSelected; }
+	void resetPlacingAsset() { placingAsset = false; assetPositionSelected = false; }
+	void resetAssetPositionSelected() { assetPositionSelected = false; }
 	bool labelMatches(const std::string& targetLabel, const WO* wo) { return wo->getLabel() == targetLabel; }
 	void setAssetPositionSelected() { assetPositionSelected = true; }
 
@@ -64,7 +65,6 @@ protected:
 	bool ShowingAssetCreatorMenu = false;
 	bool ShowingInstanceObjectMenu = false;
 	bool placingAsset = false;
-	bool canceledPlacingAsset = false;
 	bool assetPositionSelected = false;
 	char label[256] = {};
 	std::pair<ObjectandTexture, std::pair<int, int>> asset = std::make_pair(std::make_pair(std::make_pair("", ""), std::make_pair("", "")), std::make_pair(0, 0));
