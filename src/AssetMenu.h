@@ -66,6 +66,7 @@ protected:
 	bool ShowingInstanceObjectMenu = false;
 	bool placingAsset = false;
 	bool assetPositionSelected = false;
+	Vector originalCenter = (0, 0, 0);
 	char label[256] = {};
 	std::pair<ObjectandTexture, std::pair<int, int>> asset = std::make_pair(std::make_pair(std::make_pair("", ""), std::make_pair("", "")), std::make_pair(0, 0));
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path

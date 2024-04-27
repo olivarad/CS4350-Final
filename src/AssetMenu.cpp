@@ -432,13 +432,14 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						it = std::find_if(assets.WorldObjects.begin(), assets.WorldObjects.end(), [originalLabel](WO* obj) { return obj->getLabel() == originalLabel; });
 						if (it != assets.WorldObjects.end()) // Original object is a "chainable" asset
 						{
-							Vector originalCenter = originalObject->getModel()->getBoundingBox().getCenterPoint();
+							assets.originalCenter = originalObject->getPosition();
 							if (assets.isTile) // Placing a tile
 							{
-								float diffX = originalCenter.at(0) - newPosition.at(0);
-								float diffY = originalCenter.at(1) - newPosition.at(1);
+								float diffX = assets.originalCenter.at(0) - newPosition.at(0);
+								float diffY = assets.originalCenter.at(1) - newPosition.at(1);
 								if (fabs(diffX) > fabs(diffY)) // The objects will be offset in the x direction
 								{
+									Vector originalCenter = assets.originalCenter;
 									assets.resetPlacingAsset();
 									std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
 									std::string label = assets.label;
@@ -446,7 +447,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 									std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
 									WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 									wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-									wo->upon_async_model_loaded([wo, asset, label, &newPosition, WorldObjects, worldLst, originalObject, diffX, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+									wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, diffX, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
 										{
 											ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 											skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -479,7 +480,9 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											calculateNewDimensions(maxes, asset.second, newMaxes);
 											float originalXDIM = newOriginalMaxes.x;
 											float newXDIM = newMaxes.x;
-											float offset = (originalXDIM + newXDIM) / 2;
+											float offset = (originalXDIM + newXDIM);
+											std::cout << "\n\n\n\n\nCenter: " << originalCenter << "\n\n\n\n\n\n";
+											std::cout << "\n\n\n\n\nOffset: " << offset << "\n\n\n\n\n\n";
 											newPosition.x = diffX < 0 ? originalCenter.x + offset : originalCenter.x - offset;
 											newPosition.y = originalCenter.y;
 											newPosition.z = originalCenter.z;
@@ -490,6 +493,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								}
 								else // The objects will be offset in the y direction
 								{
+									Vector originalCenter = assets.originalCenter;
 									assets.resetPlacingAsset();
 									std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
 									std::string label = assets.label;
@@ -497,7 +501,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 									std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
 									WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 									wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-									wo->upon_async_model_loaded([wo, asset, label, &newPosition, WorldObjects, worldLst, originalObject, diffY, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+									wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, diffY, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
 										{
 											ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 											skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -530,7 +534,9 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											calculateNewDimensions(maxes, asset.second, newMaxes);
 											float originalYDIM = newOriginalMaxes.y;
 											float newYDIM = newMaxes.y;
-											float offset = (originalYDIM + newYDIM) / 2;
+											float offset = (originalYDIM + newYDIM);
+											std::cout << "\n\n\n\n\nCenter: " << originalCenter << "\n\n\n\n\n\n";
+											std::cout << "\n\n\n\n\nOffset: " << offset << "\n\n\n\n\n\n";
 											newPosition.x = originalCenter.x;
 											newPosition.y = diffY < 0 ? originalCenter.y + offset : originalCenter.y - offset;
 											newPosition.z = originalCenter.z;
@@ -542,14 +548,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 							}
 							else // Not placing a tile
 							{
+								Vector originalCenter = assets.originalCenter;
 								assets.resetPlacingAsset();
 								std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
 								std::string label = assets.label;
 								std::list<WO*>* WorldObjects = &assets.WorldObjects;
-								std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
+								std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects = assets.categorizedTexturedObjects;
 								WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 								wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-								wo->upon_async_model_loaded([wo, asset, label, &newPosition, WorldObjects, worldLst, originalObject, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+								wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
 									{
 										ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 										skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -562,9 +569,9 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 										wo->rotateAboutGlobalX(asset.second.first * DEGtoRAD);
 										wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
 										std::pair<int, int> originalObjectRotations = std::make_pair(0, 0);
-										for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : *categorizedTexturedObjects)
+										for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : categorizedTexturedObjects)
 										{
-											std::set<std::pair<ObjectandTexture, std::pair<int, int>>>& objectSet = category.second;
+											std::set<std::pair<ObjectandTexture, std::pair<int, int>>> objectSet = category.second;
 											for (const auto& objAndTex : objectSet)
 											{
 												ObjectandTexture objTex = objAndTex.first;
