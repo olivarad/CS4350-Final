@@ -32,7 +32,7 @@ public:
 
 	void importObjectPath(const std::pair<std::string, std::string>& object) { this->objectsPaths.insert(object); }
 	void importTexturePath(const std::pair<std::string, std::string>& texture) { this->texturePaths.insert(texture); }
-	void modifyPose(const std::string& label, const Vector& position, const Mat4& pose);
+	void modifyPose(const std::string& label, const Vector& originalPosition, const Vector& position, const Mat4& pose);
 	// Import model to be used as a WO
 	void textureModel(const std::pair<std::string, std::string>& object, const std::pair<std::string, std::string>& texture, const char (& category)[256], const std::pair<int, int>& defaultXYRotation);
 	// Push an object to the rendering worldLst and potentially label it
@@ -52,6 +52,7 @@ public:
 	void resetAssetPositionSelected() { assetPositionSelected = false; }
 	bool labelMatches(const std::string& targetLabel, const WO* wo) { return wo->getLabel() == targetLabel; }
 	void setAssetPositionSelected() { assetPositionSelected = true; }
+	void deleteAsset(std::string label, Vector Position);
 
 	NetMessengerClient* client = nullptr;
 

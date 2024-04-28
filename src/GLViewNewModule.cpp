@@ -43,6 +43,7 @@
 #include "NetMsgTextureModel.h"
 #include "NetMsgInstanceAsset.h"
 #include "NetMsgModifyPose.h"
+#include "NetMsgDeleteAsset.h"
 using namespace Aftr;
 
 GLViewNewModule* GLViewNewModule::New(const std::vector< std::string >& args)
@@ -283,6 +284,7 @@ void Aftr::GLViewNewModule::loadMap()
 	GLView::subscribe_NetMsg_to_callback<NetMsgTextureModel>([this](auto msg) {msg->onMessageArrived(); });
 	GLView::subscribe_NetMsg_to_callback<NetMsgInstanceAsset>([this](auto msg) {msg->onMessageArrived(); });
 	GLView::subscribe_NetMsg_to_callback<NetMsgModifyPose>([this](auto msg) {msg->onMessageArrived(); });
+	GLView::subscribe_NetMsg_to_callback<NetMsgDeleteAsset>([this](auto msg) {msg->onMessageArrived(); });
 
 	this->worldLst = new WorldList(); //WorldList is a 'smart' vector that is used to store WO*'s
 	std::cout << "WorldLst: " << worldLst << std::endl;

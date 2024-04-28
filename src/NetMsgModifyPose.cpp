@@ -17,6 +17,7 @@ NetMsgMacroDefinition(NetMsgModifyPose);
 NetMsgModifyPose::NetMsgModifyPose()
 {
 	this->label;
+	this->originalPosition;
 	this->position;
 	this->pose;
 }
@@ -29,6 +30,9 @@ NetMsgModifyPose::~NetMsgModifyPose()
 bool NetMsgModifyPose::toStream(NetMessengerStreamBuffer& os) const
 {
 	os << this->label;
+	os << this->originalPosition.x;
+	os << this->originalPosition.y;
+	os << this->originalPosition.z;
 	os << this->position.x;
 	os << this->position.y;
 	os << this->position.z;
@@ -43,6 +47,9 @@ bool NetMsgModifyPose::toStream(NetMessengerStreamBuffer& os) const
 bool NetMsgModifyPose::fromStream(NetMessengerStreamBuffer& is)
 {
 	is >> this->label;
+	is >> this->originalPosition.x;
+	is >> this->originalPosition.y;
+	is >> this->originalPosition.z;
 	is >> this->position.x;
 	is >> this->position.y;
 	is >> this->position.z;
@@ -60,7 +67,7 @@ void NetMsgModifyPose::onMessageArrived()
 	//std::cout << "Message Arrived" << std::endl;
 	//std::cout << this->toString();
 	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
-	glView->assets.modifyPose(label, position, pose);
+	glView->assets.modifyPose(label, originalPosition, position, pose);
 }
 
 // Print information to terminal

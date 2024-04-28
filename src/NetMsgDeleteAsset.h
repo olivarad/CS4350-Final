@@ -7,23 +7,20 @@
 
 namespace Aftr
 {
-	class NetMsgModifyPose : public NetMsg
+	class NetMsgDeleteAsset : public NetMsg
 	{
 	public:
-		NetMsgMacroDeclaration(NetMsgModifyPose);
+		NetMsgMacroDeclaration(NetMsgDeleteAsset);
 
-		NetMsgModifyPose();
-		virtual ~NetMsgModifyPose();
+		NetMsgDeleteAsset();
+		virtual ~NetMsgDeleteAsset();
 		virtual bool toStream(NetMessengerStreamBuffer& os) const;
 		virtual bool fromStream(NetMessengerStreamBuffer& is);
 		virtual void onMessageArrived();
-		virtual std::string toString() const;
 
 		// Payload
 		std::string label;
-		Vector originalPosition;
 		Vector position;
-		Mat4 pose;
 
 	protected:
 

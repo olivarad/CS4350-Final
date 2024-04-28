@@ -13,6 +13,7 @@
 #include "NetMsgTextureModel.h"
 #include "NetMsgInstanceAsset.h"
 #include "NetMsgModifyPose.h"
+#include "NetMsgDeleteAsset.h"
 #include <list>
 #include <string>
 #include <memory>
@@ -129,6 +130,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			}
 			if (assets.selectedInstance != nullptr)
 			{
+				Vector originalPosition = assets.selectedInstance->getPosition();
 				if (assets.lastInstance != assets.selectedInstance)
 				{
 					assets.lastInstance = assets.selectedInstance;
@@ -145,6 +147,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						assets.selectedInstance->setPosition(Vector(position[0], position[1], position[2]));
 						std::shared_ptr<NetMsgModifyPose> msg = std::make_shared<NetMsgModifyPose>();
 						msg->label = assets.selectedInstance->getLabel();
+						msg->originalPosition = originalPosition;
 						msg->position = assets.selectedInstance->getPosition();
 						msg->pose = assets.selectedInstance->getPose();
 						if (assets.client != nullptr)
@@ -160,6 +163,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						assets.selectedInstance->rotateAboutGlobalZ(45 * DEGtoRAD);
 						std::shared_ptr<NetMsgModifyPose> msg = std::make_shared<NetMsgModifyPose>();
 						msg->label = assets.selectedInstance->getLabel();
+						msg->originalPosition = originalPosition;
 						msg->position = assets.selectedInstance->getPosition();
 						msg->pose = assets.selectedInstance->getPose();
 						if (assets.client != nullptr)
@@ -182,10 +186,18 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					}
 					ImGui::NewLine();
 				}
-				/*
-				if (ImGui::Button("Clear Selection"))
-				assets.selectedInstance = nullptr;
-				*/
+				if (ImGui::Button("Delete Asset"))
+				{
+					std::shared_ptr<NetMsgDeleteAsset> msg = std::make_shared<NetMsgDeleteAsset>();
+					msg->label = assets.selectedInstance->getLabel();
+					msg->position = assets.selectedInstance->getPosition();
+					if (assets.client != nullptr)
+						assets.client->sendNetMsgSynchronousTCP(*msg);
+					else
+						assets.addNetMessage(msg);
+					assets.deleteAsset(assets.selectedInstance->getLabel(), assets.selectedInstance->getPosition());
+					assets.selectedInstance = nullptr;
+				}
 			}
 			if (ImGui::BeginCombo(" ", assets.selectedInstance == nullptr ? "Select Instance" : assets.selectedInstance->getLabel().c_str()))
 			{
@@ -410,7 +422,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 						std::list<WO*>* WorldObjects = &assets.WorldObjects;
 						WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 						wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-						wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject]() mutable
+						wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, assets]() mutable
 							{
 								ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 								skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -432,6 +444,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								wo->setPosition(newPosition);
 								WorldObjects->push_back(wo);
 								worldLst->push_back(wo);
+								std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+								msg->label = label;
+								msg->asset = asset.first;
+								msg->defaultRotation = asset.second;
+								msg->position = newPosition;
+								if (assets.client != nullptr)
+									assets.client->sendNetMsgSynchronousTCP(*msg);
+								else
+									assets.addNetMessage(msg);
 							});
 					}
 					else
@@ -456,7 +477,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 									std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
 									WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 									wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-									wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, diffX, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+									wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, diffX, originalCenter, originalLabel, categorizedTexturedObjects, assets]() mutable
 										{
 											ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 											skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -466,13 +487,13 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
 											wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
 											wo->setLabel(label);
-											wo->rotateAboutGlobalX(asset.second.first* DEGtoRAD);
-											wo->rotateAboutGlobalY(asset.second.second* DEGtoRAD);
+											wo->rotateAboutGlobalX(asset.second.first * DEGtoRAD);
+											wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
 											std::pair<int, int> originalObjectRotations = std::make_pair(0, 0);
 											for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : *categorizedTexturedObjects)
 											{
 												std::set<std::pair<ObjectandTexture, std::pair<int, int>>>& objectSet = category.second;
-												for (const auto& objAndTex : objectSet) 
+												for (const auto& objAndTex : objectSet)
 												{
 													ObjectandTexture objTex = objAndTex.first;
 													if (objTex.first.first == originalLabel && objTex.first.second == originalObject->getModel()->getModelDataShared()->getFileName()) // Probably a match
@@ -496,6 +517,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											wo->setPosition(newPosition);
 											WorldObjects->push_back(wo);
 											worldLst->push_back(wo);
+											std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+											msg->label = label;
+											msg->asset = asset.first;
+											msg->defaultRotation = asset.second;
+											msg->position = newPosition;
+											if (assets.client != nullptr)
+												assets.client->sendNetMsgSynchronousTCP(*msg);
+											else
+												assets.addNetMessage(msg);
 										});
 								}
 								else // The objects will be offset in the y direction
@@ -508,7 +538,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 									std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>>* categorizedTexturedObjects = &assets.categorizedTexturedObjects;
 									WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 									wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-									wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, diffY, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+									wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, diffY, originalCenter, originalLabel, categorizedTexturedObjects, assets]() mutable
 										{
 											ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 											skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -518,8 +548,8 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											skin.setSpecularCoefficient(1000); // How "sharp" are the specular highlights (bigger is sharper, 1000 is very sharp, 10 is very dull)
 											wo->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0) = std::move(skin);
 											wo->setLabel(label);
-											wo->rotateAboutGlobalX(asset.second.first* DEGtoRAD);
-											wo->rotateAboutGlobalY(asset.second.second* DEGtoRAD);
+											wo->rotateAboutGlobalX(asset.second.first * DEGtoRAD);
+											wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
 											std::pair<int, int> originalObjectRotations = std::make_pair(0, 0);
 											for (std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>& category : *categorizedTexturedObjects)
 											{
@@ -548,6 +578,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 											wo->setPosition(newPosition);
 											WorldObjects->push_back(wo);
 											worldLst->push_back(wo);
+											std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+											msg->label = label;
+											msg->asset = asset.first;
+											msg->defaultRotation = asset.second;
+											msg->position = newPosition;
+											if (assets.client != nullptr)
+												assets.client->sendNetMsgSynchronousTCP(*msg);
+											else
+												assets.addNetMessage(msg);
 										});
 								}
 							}
@@ -561,7 +600,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects = assets.categorizedTexturedObjects;
 								WO* wo = WO::New((asset.first.first.second), Vector(1, 1, 1));
 								wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
-								wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, originalCenter, originalLabel, categorizedTexturedObjects]() mutable
+								wo->upon_async_model_loaded([wo, asset, label, newPosition, WorldObjects, worldLst, originalObject, originalCenter, originalLabel, categorizedTexturedObjects, assets]() mutable
 									{
 										ModelMeshSkin skin(ManagerTex::loadTexAsync(asset.first.second.second).value());
 										skin.setMeshShadingType(MESH_SHADING_TYPE::mstAUTO);
@@ -601,6 +640,15 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 										wo->setPosition(newPosition);
 										WorldObjects->push_back(wo);
 										worldLst->push_back(wo);
+										std::shared_ptr<NetMsgInstanceAsset> msg = std::make_shared<NetMsgInstanceAsset>();
+										msg->label = label;
+										msg->asset = asset.first;
+										msg->defaultRotation = asset.second;
+										msg->position = newPosition;
+										if (assets.client != nullptr)
+											assets.client->sendNetMsgSynchronousTCP(*msg);
+										else
+											assets.addNetMessage(msg);
 									});
 							}
 						}
@@ -883,11 +931,12 @@ void AssetMenu::importAudio(irrklang::ISoundEngine* engine, const char* soundFil
 	AudioSources.insert(std::make_pair(name, engine->addSoundSourceFromFile(soundFileName)));
 }
 
-void AssetMenu::modifyPose(const std::string& label, const Vector& position, const Mat4& pose)
+void AssetMenu::modifyPose(const std::string& label, const Vector& originalPosition, const Vector& position, const Mat4& pose)
 {
 	for (std::list<WO*>::iterator it = WorldObjects.begin(); it != WorldObjects.end(); ++it)
 	{
-		if (*(&(*it)->getLabel()) == label)
+		Vector diff = originalPosition - (*it)->getPosition();
+		if (*(&(*it)->getLabel()) == label && fabs(diff.x) < 0.1 && fabs(diff.y) < 0.1 && fabs(diff.z) < 0.1)
 		{
 			(*it)->setPosition(position);
 			(*it)->setDisplayMatrix(pose);
@@ -1084,7 +1133,39 @@ void AssetMenu::setLastSelectedInstance(WO* wo)
 		selectedInstance = wo;
 }
 
-void calculateNewDimensions(const Vector& originalDimensions, Mat4 matrix, Vector& newDimensions) 
+void calculateNewDimensions(const Vector& originalDimensions, Mat4 matrix, Vector& newDimensions)
 {
 	newDimensions = matrix * originalDimensions;
+}
+
+void AssetMenu::deleteAsset(std::string label, Vector Position)
+{
+	GLViewNewModule* glView = ((GLViewNewModule*)ManagerGLView::getGLViewT<GLViewNewModule>());
+	WorldContainer* container = glView->getWorldContainer();
+	for (WO* wo : *container)
+	{
+		Vector pos = wo->getPosition();
+		Vector diff = pos - Position;
+		if (label == wo->getLabel() && fabs(diff.x) < 0.1 && fabs(diff.y) < 0.1 && fabs(diff.z) < 0.1)
+		{
+			container->eraseViaWOptr(wo);
+			break;
+		}
+	}
+
+	for (WO* wo : WorldObjects)
+	{
+		Vector pos = wo->getPosition();
+		Vector diff = pos - Position;
+		if (label == wo->getLabel() && fabs(diff.x) < 0.1 && fabs(diff.y) < 0.1 && fabs(diff.z) < 0.1)
+		{
+			container->eraseViaWOptr(wo);
+			break;
+		}
+		if (wo == selectedInstance)
+		{
+			selectedInstance = nullptr;
+		}
+	}
+
 }
