@@ -129,6 +129,13 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 			}
 			if (assets.selectedInstance != nullptr)
 			{
+				if (assets.lastInstance != assets.selectedInstance)
+				{
+					assets.lastInstance = assets.selectedInstance;
+					position[0] = assets.selectedInstance->getPosition().x;
+					position[1] = assets.selectedInstance->getPosition().y;
+					position[2] = assets.selectedInstance->getPosition().z;
+				}
 				ImGui::NewLine();
 				ImGui::Text("Modify Position");
 				if (ImGui::InputFloat3(" ", position))
@@ -397,7 +404,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 					WO* originalObject = object.value();
 					if (originalObject->getLabel() == "Grass") // Placing against grass
 					{
-						assets.resetPlacingAsset();
+						assets.resetAssetPositionSelected();
 						auto asset = assets.asset;
 						std::string label = assets.label;
 						std::list<WO*>* WorldObjects = &assets.WorldObjects;
@@ -415,11 +422,12 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								wo->setLabel(label);
 								wo->rotateAboutGlobalX(asset.second.first * DEGtoRAD);
 								wo->rotateAboutGlobalY(asset.second.second * DEGtoRAD);
+								Vector originalMaxes = originalObject->getModel()->getBoundingBox().getMax();
 								Vector maxes = wo->getModel()->getBoundingBox().getMax();
 								Vector newMaxes;
 								Mat4 matrix = wo->getDisplayMatrix();
 								calculateNewDimensions(maxes, matrix, newMaxes);
-								float offset = newMaxes.z;
+								float offset = originalMaxes.z + newMaxes.z + 0.1;
 								newPosition.z += offset;
 								wo->setPosition(newPosition);
 								WorldObjects->push_back(wo);
@@ -441,7 +449,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								if (fabs(diffX) > fabs(diffY)) // The objects will be offset in the x direction
 								{
 									Vector originalCenter = assets.originalCenter;
-									assets.resetPlacingAsset();
+									assets.resetAssetPositionSelected();
 									std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
 									std::string label = assets.label;
 									std::list<WO*>* WorldObjects = &assets.WorldObjects;
@@ -493,7 +501,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 								else // The objects will be offset in the y direction
 								{
 									Vector originalCenter = assets.originalCenter;
-									assets.resetPlacingAsset();
+									assets.resetAssetPositionSelected();
 									std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
 									std::string label = assets.label;
 									std::list<WO*>* WorldObjects = &assets.WorldObjects;
@@ -546,7 +554,7 @@ void AssetMenu::AssetMenuGUI(WOImGui* gui, AssetMenu& assets, irrklang::ISoundEn
 							else // Not placing a tile
 							{
 								Vector originalCenter = assets.originalCenter;
-								assets.resetPlacingAsset();
+								assets.resetAssetPositionSelected();
 								std::pair<ObjectandTexture, std::pair<int, int>> asset = assets.asset;
 								std::string label = assets.label;
 								std::list<WO*>* WorldObjects = &assets.WorldObjects;

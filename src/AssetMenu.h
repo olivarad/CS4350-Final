@@ -72,6 +72,7 @@ protected:
 	std::set<std::pair<std::string, std::string>> objectsPaths; // Label, path
 	std::set<std::pair<std::string, std::string>> texturePaths; // Label, path
 	std::list<std::pair<std::string, std::set<std::pair<ObjectandTexture, std::pair<int, int>>>>> categorizedTexturedObjects; // List of categories and pointers to textured objects in that category
+	WO* lastInstance = nullptr;
 	WO* selectedInstance = nullptr;
 	WO* previewInstance = nullptr;
 	std::pair<int, int> previewXYRotation = std::make_pair(0, 0);
